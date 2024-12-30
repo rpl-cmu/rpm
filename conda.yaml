@@ -1,0 +1,28 @@
+# conda env create --file conda.yaml
+name: mmwcas
+channels:
+  - conda-forge
+  - nvidia/label/cuda-12.6.0
+dependencies:
+  - python=3.10
+  - cuda-nvcc
+  - "jaxlib=*=*cuda126*"
+  - jax
+  - optax
+  - jaxtyping
+  - numba
+  - open3d
+  - pip
+  - pip:
+    - pyparsing
+    - pyhocon
+    - tqdm
+    - matplotlib
+    - pathlib
+    - pyyaml
+    - opencv-python
+    - scikit-image
+    - pytransform3d
+    - imageio
+    - imageio-ffmpeg
+    - rosbags
