@@ -11,7 +11,8 @@ from os.path import join as pjoin
 import jax
 from jaxtyping import PyTree, Complex, Float, Int, Array
 
-from sar import MIMODataset, BackProjection, RadarMap
+from mmwcas.dataset import MIMODataset
+from sar import BackProjection, RadarMap
 
 
 class Runner:
