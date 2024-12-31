@@ -5,8 +5,7 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import PyTree, Complex, Float, Array
 from sar import ChirpPoseDataset, RadarMap
-from mmwcas.mmwcas import PatternAZI
-
+from mmwcas.process import PatternAZI
 
 class BackProjection:
     def __init__(
@@ -30,7 +29,7 @@ class BackProjection:
         self.window = jnp.hanning(param.numADCSample)
 
         # radiation pattern parameters
-        self.pattern = PatternAZI("mmwcas/pattern.mat")
+        self.pattern = PatternAZI(xla=jnp)
         self.azimuth_fov = azimuth_fov
 
         # map parameters
@@ -68,7 +67,7 @@ class BackProjection:
         image = image.reshape(grid.shape[:2])
         ray_dot = ray @ ray_v / r
         angle = jnp.rad2deg(jnp.arccos(ray_dot))
-        gain = jnp.power(10, self.pattern.gain(angle)/10)
+        gain = jnp.power(10, self.pattern.gain(angle) / 10)
         image = image * gain.reshape(grid.shape[:2])
 
         mask_range = jnp.logical_and(r < self.range_max, r > self.protect_range)

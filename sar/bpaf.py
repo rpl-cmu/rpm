@@ -5,7 +5,7 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import PyTree, Complex, Float, Array, Int, Bool
 from sar import ChirpPoseDataset, RadarMap
-from mmwcas.mmwcas import PatternAZI
+from mmwcas.process import PatternAZI
 
 
 class AFBackProjection:
@@ -29,7 +29,7 @@ class AFBackProjection:
         self.k = 2 * np.pi * (F0 / C)
 
         # radiation pattern parameters
-        self.pattern = PatternAZI("mmwcas/pattern.mat")
+        self.pattern = PatternAZI(xla=jnp)
         self.azimuth_fov = azimuth_fov
 
         # map parameters

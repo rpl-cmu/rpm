@@ -1,8 +1,5 @@
 __pycache__
-videos/
-outputs/
 *.mp4
-tmp/
 .vscode/
 *.npy
 exps/

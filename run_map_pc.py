@@ -10,7 +10,6 @@ from evaluation import map_pc, chamfer_distance
 from utils import bodyframe_vel_estimate
 from sar import RadarMap
 
-
 argparser = argparse.ArgumentParser(description="map radar pc")
 argparser.add_argument("--folder", type=str, help="Folder path", required=True)
 argparser.add_argument("--radar_map", type=str, help="load radar map", required=True)
