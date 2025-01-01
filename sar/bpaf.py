@@ -4,7 +4,8 @@ from functools import cached_property
 import jax
 import jax.numpy as jnp
 from jaxtyping import PyTree, Complex, Float, Array, Int, Bool
-from sar import ChirpPoseDataset, RadarMap
+from sar import RadarMap
+from mmwcas.dataset import ChirpPoseDataset
 from mmwcas.process import PatternAZI
 
 
