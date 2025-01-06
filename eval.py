@@ -64,7 +64,8 @@ for pc, pose in dataset:
     pc = pc[:, :3]
     z = pc[:, 2]
     d = np.linalg.norm(pc, axis=1)
-    mask = np.logical_and(snr > args.snr_thresh, d < args.dist_thresh),
+    mask = np.logical_and(snr > args.snr_thresh, d < args.dist_thresh)
+    mask = np.logical_and(mask, np.abs(z) < args.z_thresh)
         
     pc = pc[mask]
     pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pc[:, :3]))
