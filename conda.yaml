@@ -26,3 +26,4 @@ dependencies:
     - imageio
     - imageio-ffmpeg
     - rosbags
+    - tyro
