@@ -14,6 +14,7 @@ class RadarMap:
         map_extent: float = 10,  # meter
         protect_range: float = 0.5,  # meter
         block: int = 16,
+        prior_cov: float = 1000000.0,
     ):
         # map parameters
         self.resolution = resolution
@@ -61,6 +62,7 @@ class RadarMap:
         self.cos_sum = np.zeros(self.grid.shape[:2], dtype=np.float32)
         self.n_obs = np.zeros(self.grid.shape[:2], dtype=np.int32)
         w, h, _ = self.grid.shape
+        self.cov = np.zeros((w, h, 2, 2), dtype=np.float32) + prior_cov * np.eye(2)
 
         print("map size: ", w, h)
 
@@ -76,6 +78,7 @@ class RadarMap:
             "sin_sum": self.sin_sum,
             "cos_sum": self.cos_sum,
             "n_obs": self.n_obs,
+            "cov": self.cov,
             "update": update,
         }
 
