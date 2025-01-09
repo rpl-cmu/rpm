@@ -2,18 +2,18 @@
 name: mmwcas
 channels:
   - conda-forge
-  - nvidia/label/cuda-12.6.0
+  - nvidia
 dependencies:
   - python=3.10
-  - cuda-nvcc
-  - "jaxlib=*=*cuda126*"
-  - jax
-  - optax
-  - jaxtyping
-  - numba
-  - open3d
+  - cuda-nvcc=12.2.140
+  - cmake=3.27.9
   - pip
   - pip:
+    - "jax[cuda12]==0.4.35"
+    - optax
+    - jaxtyping
+    - numba
+    - open3d
     - pyparsing
     - pyhocon
     - tqdm
