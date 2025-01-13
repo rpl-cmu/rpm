@@ -17,8 +17,9 @@ def run_sar(
     name: str = "current_time",
     save_video: bool = False,
     map_extent: float = 10.0,
-    protect_range: float = 0.6,
-    azimuth_fov: float = 20.0,  # degree
+    protect_range: float = 0.4,
+    azimuth_fov: float =20.0,  # degree
+    smooth_window: int = 5,
     max_batch: int = 1024,
     r: str = "radar0",
     rx: list[int] = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15],
@@ -34,11 +35,16 @@ def run_sar(
         map_extent: distance to extent from pose position to create the map
         protect_range: minimum range to process from pose position
         azimuth_fov: field of view of the azimuth angle (degree)
+        smooth_window: window size for freqeuncy spectrum peak suppression
         max_batch: batch size for the mapping process
         r: radar name
         rx: receive antennas idx (None = all antennas)
         tx: transmit antennas idx (None = all antennas)
     """
+    if len(rx) == 0:
+        rx = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15]
+    if len(tx) == 0:
+        tx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
     # load existing map
     if load:
@@ -59,7 +65,9 @@ def run_sar(
         len(dataset) * dataset.adc.param.numChirp * len(tx) * len(rx),
     )
 
-    back_projection = BackProjection(dataset, map_extent, protect_range, azimuth_fov)
+    back_projection = BackProjection(
+        dataset, map_extent, protect_range, azimuth_fov, smooth_window
+    )
 
     if save_video:
         writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=dataset.fps)

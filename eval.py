@@ -44,7 +44,7 @@ lidar, lidar_img = map_pc(
 )
 
 map_abs = np.abs(map_sar.complex)
-thresh = np.percentile(map_abs, 95)
+thresh = np.percentile(map_abs, 97)
 grid = map_sar.grid
 sar_pc = grid[map_abs > thresh]
 sar_pc, sar_image = map_pc(grid, map_sar.resolution, sar_pc, args.radar_map, "map_sar.png")

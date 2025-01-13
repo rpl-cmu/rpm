@@ -8,13 +8,16 @@ from sar import RadarMap
 from mmwcas.dataset import ChirpPoseDataset
 from mmwcas.process import PatternAZI
 
+
 class BackProjection:
     def __init__(
         self,
         dataset: ChirpPoseDataset,
         map_extent: float = 10,  # meter
         protect_range: float = 0.5,  # meter
-        azimuth_fov: float = 40,  # degree
+        azimuth_fov: float = 20,  # degree
+        smooth_window: int = 5,
+        resolution_scale: int = 2,
     ) -> None:
         # frame poses
         poses = dataset.chirp_poses[:, 0, 0, :, :]
@@ -29,13 +32,16 @@ class BackProjection:
         self.k = 2 * np.pi * (F0 / C)
         self.window = jnp.hanning(param.numADCSample)
 
+        self.smooth_kernel = jnp.ones(smooth_window) / smooth_window
+
         # radiation pattern parameters
         self.pattern = PatternAZI(xla=jnp)
         self.azimuth_fov = azimuth_fov
 
         # map parameters
         self.protect_range = protect_range
-        self.proc_range_res = param.rangeResolution / 2
+        self.proc_range_res = param.rangeResolution / resolution_scale
+        self.fft_len = param.numADCSample * resolution_scale
         self.map = RadarMap(
             resolution=self.proc_range_res,
             poses=poses,
@@ -53,29 +59,33 @@ class BackProjection:
     ) -> Complex[Array, "n m"]:
         pts = pose_tx[:3, 3]
         pixels = grid.reshape(-1, 3)
-
         ray_v = jnp.dot(pose_tx[:3, :3], jnp.array([1, 0, 0]))
-        ray = pixels - pts
+
         rtx = jnp.linalg.norm(pixels - pose_tx[:3, 3], axis=-1)
         rrx = jnp.linalg.norm(pixels - pose_rx[:3, 3], axis=-1)
         r = (rtx + rrx) * 0.5
-        sig_fft = jnp.fft.fft(self.window * sig)
-        idx = (r // self.range_res).astype(int)
-        sig_min, sig_max = sig_fft[idx], sig_fft[idx + 1]
-        sig_at_r = sig_min + (r % self.range_res) * (sig_max - sig_min) / self.range_res
-        image = sig_at_r * jnp.exp(-1j * 2 * k * r)
+        sig = sig - jnp.mean(sig)
+        sig_fft = jnp.fft.fft(self.window * sig, n=self.fft_len, norm="forward")
+        mag = jnp.abs(sig_fft)
+        mag_smooth = jnp.convolve(mag, self.smooth_kernel, mode="same")
+        sig_fft = sig_fft / mag * mag_smooth
 
-        image = image.reshape(grid.shape[:2])
-        ray_dot = ray @ ray_v / r
+        idx = (r // self.proc_range_res).astype(int)
+        sig_min, sig_max = sig_fft[idx], sig_fft[idx + 1]
+        sig_at_r = (
+            sig_min
+            + (r % self.proc_range_res) * (sig_max - sig_min) / self.proc_range_res
+        )
+
+        ray_dot = (pixels - pts) @ ray_v / r
         angle = jnp.rad2deg(jnp.arccos(ray_dot))
         gain = jnp.power(10, self.pattern.gain(angle) / 10)
-        image = image * gain.reshape(grid.shape[:2])
 
         mask_range = jnp.logical_and(r < self.range_max, r > self.protect_range)
         mask_angle = jnp.logical_and(angle > 0, angle < self.azimuth_fov)
-        mask = jnp.logical_and(mask_range, mask_angle).reshape(grid.shape[:2])
-
-        image = image * mask
+        mask = jnp.logical_and(mask_range, mask_angle)
+        image = sig_at_r * jnp.exp(-1j * 2 * k * r) * gain * mask
+        image = image.reshape(grid.shape[:2])
 
         return image
 
