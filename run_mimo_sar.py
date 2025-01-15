@@ -20,6 +20,7 @@ def run_sar(
     protect_range: float = 0.4,
     azimuth_fov: float =20.0,  # degree
     smooth_window: int = 5,
+    resolution_scale: int = 2,
     max_batch: int = 1024,
     r: str = "radar0",
     rx: list[int] = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15],
@@ -66,7 +67,7 @@ def run_sar(
     )
 
     back_projection = BackProjection(
-        dataset, map_extent, protect_range, azimuth_fov, smooth_window
+        dataset, map_extent, protect_range, azimuth_fov, smooth_window, resolution_scale
     )
 
     if save_video:
@@ -93,7 +94,7 @@ def run_sar(
         pose_tx = pose_tx.reshape(-1, 4, 4)
         pose_rx = pose_rx.reshape(-1, 4, 4)
 
-        # map_state["complex"] = np.zeros_like(map_state["complex"])
+        map_state["complex"] = np.zeros_like(map_state["complex"])
         for b in batch:
             map_state = back_projection.update_batch(
                 pose_tx[b], pose_rx[b], sig[b], map_state
@@ -101,7 +102,7 @@ def run_sar(
 
         if save_video:
             map_abs = np.abs(map_state["complex"])
-            left, right = np.percentile(map_abs, np.array([0.0, 99.0]))
+            left, right = np.percentile(map_abs, np.array([0.0, 99.9]))
             map_clip = (np.clip(map_abs, left, right) - left) / (right - left)
             map_clip = map_clip / np.max(map_clip)
             map = color_map(map_clip)[:, :, :3] * 255
