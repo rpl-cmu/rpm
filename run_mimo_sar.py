@@ -21,7 +21,7 @@ def run_sar(
     azimuth_fov: float =20.0,  # degree
     smooth_window: int = 5,
     resolution_scale: int = 2,
-    max_batch: int = 1024,
+    max_batch: int = 512,
     r: str = "radar0",
     rx: list[int] = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15],
     tx: list[int] = [0],
@@ -94,7 +94,7 @@ def run_sar(
         pose_tx = pose_tx.reshape(-1, 4, 4)
         pose_rx = pose_rx.reshape(-1, 4, 4)
 
-        map_state["complex"] = np.zeros_like(map_state["complex"])
+        # map_state["complex"] = np.zeros_like(map_state["complex"])
         for b in batch:
             map_state = back_projection.update_batch(
                 pose_tx[b], pose_rx[b], sig[b], map_state

@@ -32,16 +32,13 @@ sig = sig + 1j * sig
 dis = jnp.array([0.1, 3.0, 4.0, 5.0])
 ang = jnp.array([1.0, 2.0, 3.0, 50.0])
 
-min_dis = jnp.float32(0.6)
-max_dis = jnp.float32(10.0)
-azi_fov = jnp.float32(40.0)
-k = jnp.float32(10)
-
-out = bp_cuda(sig, dis, ang, k, min_dis, max_dis, azi_fov)
-print(out.shape)
-print(out)
+min_dis = jnp.array([0.6])
+max_dis = jnp.array([10.0])
+azi_fov = jnp.array([40.0])
+k = jnp.array([10.0])
 
 bp = jax.jit(bp_cuda)
+
 out = bp(sig, dis, ang, k, min_dis, max_dis, azi_fov)
 print(out.shape)
 print(out)

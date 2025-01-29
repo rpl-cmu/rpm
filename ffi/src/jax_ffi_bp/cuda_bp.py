@@ -24,14 +24,13 @@ import numpy as np
 
 import jax
 import jax.numpy as jnp
-import jax.extend as jex
 
 # Load the shared library with the FFI target definitions
 SHARED_LIBRARY = os.path.join(os.path.dirname(__file__), "lib_cuda_bp.so")
 library = ctypes.cdll.LoadLibrary(SHARED_LIBRARY)
 
-jex.ffi.register_ffi_target(
-    "BackProject", jex.ffi.pycapsule(library.BackProject), platform="CUDA"
+jax.ffi.register_ffi_target(
+    "BackProject", jax.ffi.pycapsule(library.BackProject), platform="CUDA"
 )
 
 
@@ -41,7 +40,7 @@ def BackProjectCUDA(sig, range, angle, k, min_dis, max_dis, azi_fov):
     assert angle.dtype == jnp.float32
     assert sig.shape == range.shape == angle.shape
     out_type = jax.ShapeDtypeStruct(sig.shape, sig.dtype)
-    out = jex.ffi.ffi_call("BackProject", out_type, vmap_method="broadcast_all")(
+    out = jax.ffi.ffi_call("BackProject", out_type, vmap_method="broadcast_all")(
         sig, range, angle, k, min_dis, max_dis, azi_fov
     )
     return out
