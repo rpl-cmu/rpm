@@ -18,12 +18,12 @@ def run_sar(
     save_video: bool = False,
     map_extent: float = 10.0,
     protect_range: float = 0.4,
-    azimuth_fov: float =20.0,  # degree
+    azimuth_fov: float = 20.0,  # degree
     smooth_window: int = 5,
     resolution_scale: int = 2,
     max_batch: int = 512,
     r: str = "radar0",
-    rx: list[int] = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15],
+    rx: list[int] = [0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 10, 11, 12, 13, 14, 15],
     tx: list[int] = [0],
 ) -> None:
     """Run the SAR mapping process
@@ -42,10 +42,6 @@ def run_sar(
         rx: receive antennas idx (None = all antennas)
         tx: transmit antennas idx (None = all antennas)
     """
-    if len(rx) == 0:
-        rx = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15]
-    if len(tx) == 0:
-        tx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
     # load existing map
     if load:
@@ -62,8 +58,7 @@ def run_sar(
     dataset = MIMODataset(pjoin(data_dir, r), rx=rx, tx=tx)
 
     print(
-        "synthetic antennas: ",
-        len(dataset) * dataset.adc.param.numChirp * len(tx) * len(rx),
+        f"synthetic antennas: {len(dataset)} x {dataset.adc.param.numChirp} x {len(dataset.rx)} x {len(dataset.tx)}"
     )
 
     back_projection = BackProjection(

@@ -13,7 +13,8 @@ import optax
 import jax.numpy as jnp
 from jaxtyping import PyTree, Complex, Float, Int, Array
 
-from sar import MIMODataset, AFBackProjection, RadarMap
+from mmwcas.dataset import MIMODataset
+from sar import AFBackProjection, RadarMap
 
 
 class Runner:
