@@ -12,14 +12,12 @@ class RadarMap:
         resolution: float,
         poses: np.ndarray,
         map_extent: float = 10,  # meter
-        protect_range: float = 0.5,  # meter
         block: int = 16,
         prior_cov: float = 1000000.0,
     ):
         # map parameters
         self.resolution = resolution
         self.map_extent = map_extent
-        self.protect_range = protect_range
         self.patch_radius = int(map_extent // resolution) - 1
 
         pos_max_xy = np.max(poses[:, :2, 3], axis=0)

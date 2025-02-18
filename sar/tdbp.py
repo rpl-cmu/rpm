@@ -46,7 +46,6 @@ class BackProjection:
             resolution=self.proc_range_res,
             poses=poses,
             map_extent=map_extent,
-            protect_range=protect_range,
         )
 
     def project_sig2D(
