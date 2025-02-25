@@ -20,11 +20,11 @@ class RAmapping:
     ) -> None:
         # frame poses
         poses = dataset.chirp_poses[:, 0, 0, :, :]
-        param = dataset.adc.param
+        self.param = dataset.adc.param
 
         # map parameters
-        self.proc_range_res = param.rangeResolution / resolution_scale
-        self.fft_len = param.numADCSample * resolution_scale
+        self.proc_range_res = self.param.rangeResolution / resolution_scale
+        self.fft_len = self.param.numADCSample * resolution_scale
         self.map = RadarMap(
             resolution=self.proc_range_res,
             poses=poses,
@@ -33,12 +33,12 @@ class RAmapping:
         self.map_val = jnp.zeros(self.map.grid.shape[:2], dtype=jnp.float32)
 
         self.proc = RangeAzimuthProc(
-            dataset.adc.param,
+            self.param,
             angele_fft_size=angele_fft_size,
             range_bin_min=range_bin_min,
             range_bin_max=range_bin_max,
             angle_3dB=angle_3dB,
-            normalize_factor=normalize_factor,
+            output_normalize=False,
         )
 
         cartisian = jnp.stack((self.proc.x_axis, self.proc.y_axis), axis=-1)
@@ -52,7 +52,7 @@ class RAmapping:
         self.sin_res = 2.0 / (afft_size - 1)
         self.ang_size = cartisian.shape[1]
 
-        self.range_res = param.rangeBinSize
+        self.range_res = self.param.rangeBinSize
         self.range_bin_min = range_bin_min
 
     def __call__(
@@ -61,7 +61,18 @@ class RAmapping:
         sig_tensor: Complex[Array, "sample chirp rx tx"],
         cur_map: Float[Array, "H W"],
     ):
-        ra_img = self.proc(sig_tensor) - 0.1
+        ra = self.proc(sig_tensor)
+        ra_img = jnp.clip(jnp.log10(ra), -0.25, 1.0)
+        density = ra / 20.0
+
+        alpha = 1 - jnp.exp(-density)
+        w, h = alpha.shape
+        transmission = jnp.cumprod(
+            jnp.concatenate([jnp.ones((1, h)), 1.0 - alpha + 1e-7], axis=0), axis=0
+        )[:-1]
+
+        ra_img = transmission * ra_img
+        # ra_img = jnp.clip(ra / 10.0, 0, 1) - 0.05
 
         idx = ((pose[:2, 3] - self.map.min_xy) // self.proc_range_res).astype(int)
         img_space = jax.lax.dynamic_slice(
@@ -103,5 +114,5 @@ class RAmapping:
         )
 
         cur_map = jax.lax.dynamic_update_slice(cur_map, mval + val, slice_idx)
-
+        cur_map = jnp.clip(cur_map, -2, 3.5)
         return cur_map

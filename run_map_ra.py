@@ -14,6 +14,10 @@ import jax.numpy as jnp
 from mmwcas.dataset import ChirpPoseDataset
 from sar import RAmapping, RadarMap
 
+import warnings
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
 
 def run_sar(
     folder: str,
@@ -22,15 +26,8 @@ def run_sar(
     save_video: bool = False,
     map_extent: float = 10.0,
     resolution_scale: int = 2,
-    max_batch: int = 512,
     r: str = "radar0",
 ) -> None:
-
-    # load existing map
-    if load:
-        map_sar = RadarMap.load(load)
-        map_sar.visualize(load, color_map="hot")
-        return
 
     data_dir = Path(folder)
     seq_name = data_dir.name
@@ -41,7 +38,7 @@ def run_sar(
     dataset = ChirpPoseDataset(pjoin(data_dir, r))
 
     # ramapping = RAmapping(dataset, map_extent)
-    mapper = RAmapping(dataset, map_extent)
+    mapper = RAmapping(dataset, map_extent, resolution_scale)
     map_val = mapper.map_val
     ramapping = jax.jit(mapper.__call__)
 
@@ -53,8 +50,12 @@ def run_sar(
         pose = poses[0, 4]  # center: chirp 0 tx 4
         map_val = ramapping(pose, chirps, map_val)
 
-        # clip_value = np.percentile(map_val, 80)
-        img = color_map(np.clip(map_val, 0, 1))[..., :3] * 255
+        p = 1.0 - 1.0 / (1.0 + np.exp(map_val))
+        img = color_map(p)[..., :3] * 255
+
+        # ra = np.clip(ra, 0, 1)
+        # img = color_map(ra)[..., :3] * 255
+
         writer.append_data(img.astype(np.uint8))
 
 
