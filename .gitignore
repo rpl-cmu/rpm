@@ -4,3 +4,8 @@ __pycache__
 *.npy
 exps/
 ramap/
+
+build/
+devel/
+catkin_ws/src/CMakeLists.txt
+.catkin_workspace
