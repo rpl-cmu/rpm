@@ -1,16 +1,16 @@
 from .map import RadarMap
 
 from .tdbp import BackProjection
+from .tdbp_prob import BackProjectionProb
 from .bpaf import AFBackProjection
 from .bp_filter import BackProjectionKF
 from .ra_mapping import RAmapping
-# from .tdbp_cu import BackProjectionCU
 
 __all__ = [
     "BackProjection",
     "AFBackProjection",
     "BackProjectionKF",
-    # "BackProjectionCU",
+    "BackProjectionProb",
     "RadarMap",
-    "RAmapping"
+    "RAmapping",
 ]
