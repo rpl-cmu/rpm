@@ -26,6 +26,7 @@ def run_sar(
     save_video: bool = False,
     map_extent: float = 10.0,
     resolution_scale: int = 2,
+    angle_fov: float = 30.0,
     r: str = "radar0",
 ) -> None:
 
@@ -38,8 +39,13 @@ def run_sar(
     dataset = ChirpPoseDataset(pjoin(data_dir, r))
 
     # ramapping = RAmapping(dataset, map_extent)
-    mapper = RAmapping(dataset, map_extent, resolution_scale)
-    map_val = mapper.map_val
+    mapper = RAmapping(
+        dataset=dataset,
+        map_extent=map_extent,
+        resolution_scale=resolution_scale,
+        angle_3dB=angle_fov,
+    )
+    log_odds = mapper.map_val
     ramapping = jax.jit(mapper.__call__)
 
     if save_video:
@@ -48,15 +54,15 @@ def run_sar(
 
     for chirps, poses, stamp in tqdm(dataset):
         pose = poses[0, 4]  # center: chirp 0 tx 4
-        map_val = ramapping(pose, chirps, map_val)
+        log_odds = ramapping(pose, chirps, log_odds)
 
-        p = 1.0 - 1.0 / (1.0 + np.exp(map_val))
+        p = 1.0 - 1.0 / (1.0 + np.exp(log_odds))
         img = color_map(p)[..., :3] * 255
 
-        # ra = np.clip(ra, 0, 1)
-        # img = color_map(ra)[..., :3] * 255
+        if save_video:
+            writer.append_data(img.astype(np.uint8))
 
-        writer.append_data(img.astype(np.uint8))
+    imageio.imwrite(f"{save_dir}/ra_map.png", img.astype(np.uint8))
 
 
 if __name__ == "__main__":
