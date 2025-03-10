@@ -57,6 +57,8 @@ class RAmapping:
         self.range_res = self.param.rangeBinSize
         self.range_bin_min = range_bin_min
 
+        self.amp_sigma = 2.0
+
     def __call__(
         self,
         pose: Float[Array, "4 4"],
@@ -67,11 +69,16 @@ class RAmapping:
         ra = ra * self.range_mask[:, None]
 
         # log_odds = jnp.clip(jnp.log10(ra), -0.25, 1.0)
-        prob = 1 - jnp.exp(-(ra**2) / (2 * 1**2))
-        log_odds = jnp.log(prob / (1 - prob) + 1e-7)
-        log_odds = jnp.clip(log_odds, -0.25, 1.0)
+        # db = 10 * jnp.log10(ra)
+        prob = 1 - jnp.exp(-(ra**2) / (2 * self.amp_sigma**2))
+        ang_mask = jnp.max(ra, axis=0) < 0.5
+        prob = prob * (1 - ang_mask[None, :]) + 0.5 * ang_mask[None, :]
 
-        density = ra / 20.0
+        log_odds = jnp.log(prob / ((1 - prob) + 1e-7))
+        log_odds = jnp.clip(log_odds, -0.25, jnp.inf)
+
+        # density = ra / 20.0
+        density = jnp.clip(jnp.log10(ra), 0, jnp.inf)
 
         alpha = 1 - jnp.exp(-density)
         w, h = alpha.shape

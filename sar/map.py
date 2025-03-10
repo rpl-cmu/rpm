@@ -12,12 +12,14 @@ class RadarMap:
         resolution: float,
         poses: np.ndarray,
         map_extent: float = 10,  # meter
+        amp_sigma=0.5,
         block: int = 16,
         prior_cov: float = 1000000.0,
     ):
         # map parameters
         self.resolution = resolution
         self.map_extent = map_extent
+        self.amp_sigma = amp_sigma
         self.patch_radius = int(map_extent // resolution) - 1
 
         pos_max_xy = np.max(poses[:, :2, 3], axis=0)
@@ -53,7 +55,7 @@ class RadarMap:
             / normal[2]
             + pos_center[2]
         )
-        
+
         # internal state
         self.complex = np.zeros(self.grid.shape[:2], dtype=np.complex64)
         self.sin_sum = np.zeros(self.grid.shape[:2], dtype=np.float32)
@@ -140,6 +142,12 @@ class RadarMap:
         map_clip = map_clip / np.max(map_clip)
         to_png(save_dir, map_clip, "map_clip.png")
 
+        # rayleigh
+        map_norm = map_abs / map_state["n_obs"]
+        map_norm *= map_state["n_obs"] > 64
+        prob = 1 - np.exp(-(map_norm**2) / (2 * self.amp_sigma**2))
+        to_png(save_dir, prob, "map_rayleigh.png")
+
         # phase
         map_phase = np.angle(map_state["complex"])
         map_phase = (map_phase + np.pi) / (2 * np.pi)
@@ -157,26 +165,16 @@ class RadarMap:
         # map_scaled = np.clip(map_scaled / args.map_max * 10, 0, 1)
         # to_png(save_dir, map_scaled, f"map_scaled_{args.map_max*10:.0e}.png")
 
-        # occupancy
+        # pc
         thresh = np.percentile(map_abs, 95)
         mask = np.ones_like(map_abs, dtype=np.uint8) * 255
         mask[map_abs > thresh] = 0
-        cv2.imwrite(f"{save_dir}/map_occupancy.png", mask)
+        cv2.imwrite(f"{save_dir}/map_sar_pc.png", mask)
 
         # Histogram equalization
         abs_sorted = np.sort(map_abs[map_state["n_obs"] > 0].reshape(-1))
-
-        plt.figure()
-        plt.hist(abs_sorted, bins=1000, log=True)
-        plt.title("log histogram of map_abs")
-        plt.savefig(f"{save_dir}/map_abs_hist.png", bbox_inches="tight")
-
         cdf = np.cumsum(abs_sorted)
         cdf = cdf / cdf[-1]
-        plt.figure()
-        plt.plot(abs_sorted, cdf)
-        plt.title("cdf of map_abs")
-        plt.savefig(f"{save_dir}/map_cdf.png", bbox_inches="tight")
 
         # equalized
         new_map_idx = np.searchsorted(
@@ -186,15 +184,25 @@ class RadarMap:
         map_abs[map_state["n_obs"] > 0] = new_map
         to_png(save_dir, map_abs, "map_equalized.png")
 
-        plt.figure()
-        plt.hist(new_map, bins=1000, log=True)
-        plt.title("log histogram of equalized map_abs")
-        plt.savefig(f"{save_dir}/map_equalized_hist.png", bbox_inches="tight")
+        # plt.figure()
+        # plt.hist(abs_sorted, bins=1000, log=True)
+        # plt.title("log histogram of map_abs")
+        # plt.savefig(f"{save_dir}/map_abs_hist.png", bbox_inches="tight")
 
-        plt.figure()
-        new_map_sorted = np.sort(new_map)
-        cdf = np.cumsum(new_map_sorted)
-        cdf = cdf / cdf[-1]
-        plt.plot(new_map_sorted, cdf)
-        plt.title("cdf of equalized map_abs")
-        plt.savefig(f"{save_dir}/map_equalized_cdf.png", bbox_inches="tight")
+        # plt.figure()
+        # plt.plot(abs_sorted, cdf)
+        # plt.title("cdf of map_abs")
+        # plt.savefig(f"{save_dir}/map_cdf.png", bbox_inches="tight")
+
+        # plt.figure()
+        # plt.hist(new_map, bins=1000, log=True)
+        # plt.title("log histogram of equalized map_abs")
+        # plt.savefig(f"{save_dir}/map_equalized_hist.png", bbox_inches="tight")
+
+        # plt.figure()
+        # new_map_sorted = np.sort(new_map)
+        # cdf = np.cumsum(new_map_sorted)
+        # cdf = cdf / cdf[-1]
+        # plt.plot(new_map_sorted, cdf)
+        # plt.title("cdf of equalized map_abs")
+        # plt.savefig(f"{save_dir}/map_equalized_cdf.png", bbox_inches="tight")
