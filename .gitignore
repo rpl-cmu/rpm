@@ -9,3 +9,7 @@ build/
 devel/
 catkin_ws/src/CMakeLists.txt
 .catkin_workspace
+.catkin_tools/
+build/
+devel/
+logs/

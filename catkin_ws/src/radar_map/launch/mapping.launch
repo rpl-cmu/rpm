@@ -1,0 +1,16 @@
+<launch>
+    <arg name="pose_file" />
+    <arg name="bag_folder" />
+    
+    <param name="pose_path" value="$(arg pose_file)" />
+    <param name="bag_folder" value="$(arg bag_folder)" />
+
+    <node pkg="radar_map" type="mapping" name="mapping" output="screen" required="true">
+        <param name="pose_path" value="$(arg pose_file)" />
+        <param name="bag_folder" value="$(arg bag_folder)" />
+    </node>
+
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find radar_map)/launch/vis.rviz" />
+
+
+</launch>
