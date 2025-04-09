@@ -1,5 +1,6 @@
+import jax.scipy.optimize
 import numpy as np
-from functools import cached_property
+from functools import cached_property, partial
 
 import jax
 import jax.numpy as jnp
@@ -50,12 +51,19 @@ class BackProjectionProb:
             map_extent=map_extent,
         )
 
-        self.sigma_amp = 50.0
+        self.sigma_amp = 10.0
         self.k_phase = 4
         self.phase_level = jnp.linspace(-jnp.pi, jnp.pi, 18)
         self.xi = -1e-3
 
         self.map_logodds = jnp.zeros(self.map.grid.shape[:2] + (len(self.phase_level),))
+
+    def adjust_loss(self, zeta, prob):
+        p = jnp.clip(prob + zeta, 0, 1)
+        log_odds = jnp.log(p / (1 - p + 1e-7))
+        logsum = jnp.sum(log_odds, axis=-1, keepdims=True)
+        loss = jnp.linalg.norm(logsum)
+        return loss
 
     def project_sig2D(
         self,
@@ -104,23 +112,24 @@ class BackProjectionProb:
         image = image.reshape(n, m)
 
         amp, phase = jnp.abs(image), jnp.angle(image)
-        prob = 1 - jnp.exp(-(amp**2) / (2 * self.sigma_amp**2))
+        amp_db = 10 * jnp.log10(amp)
+        prob = 1 - jnp.exp(-(amp_db**2) / (2 * self.sigma_amp**2))
         phase = phase.reshape(n, m, 1)
         phase = jnp.tile(phase, (1, 1, l))
         prob_phase = vonmises.pdf(self.phase_level - phase, self.k_phase)
         prob_phase = prob_phase / jnp.max(prob_phase, axis=-1, keepdims=True)
 
-        prob_level = (prob_phase * prob[:, :, None]) / 2 + 0.5
+        prob_level = prob_phase * prob[:, :, None] / 2 + 0.5
 
-        # zeta = jnp.zeros((n, m, 1)) TODO
-        # for i in range(10):
-        #     log_odds = jnp.log((prob_level + zeta) / (1 - (prob_level + zeta) + 1e-7))
-        #     logsum = jnp.sum(log_odds, axis=-1)
-        #     print(logsum.shape)
-        #     exit(0)
+        zeta = jnp.zeros((n, m, 1))
 
-        log_odds = jnp.log((prob_level + self.xi) / (1 - (prob_level + self.xi) + 1e-7))
-        # print(log_odds.shape, jnp.max(log_odds), jnp.min(log_odds), jnp.mean(log_odds))
+        loss_fn = partial(self.adjust_loss, prob=prob_level)
+        for i in range(8):
+            grad = jax.numpy.nan_to_num(jax.grad(loss_fn)(zeta))
+            zeta = zeta - 5e-2 * grad
+
+        p = jnp.clip(prob_level + zeta + self.xi, 0, 1)
+        log_odds = jnp.log(p / (1 - p + 1e-7))
 
         return log_odds * mask.reshape(n, m, 1)
 

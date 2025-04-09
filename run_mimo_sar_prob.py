@@ -25,7 +25,7 @@ def run_sar(
     azimuth_fov: float = 20.0,  # degree
     smooth_window: int = 5,
     resolution_scale: int = 2,
-    max_batch: int = 32,
+    max_batch: int = 16,
     r: str = "radar0",
     rx: list[int] = [0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 10, 11, 12, 13, 14, 15],
     tx: list[int] = [0],
@@ -90,6 +90,33 @@ def run_sar(
     for sig, pose_tx, pose_rx, stamp in tqdm(dataset):
 
         sig = sig.reshape(-1, num_samples)
+
+        # amp = np.fft.fft(sig[0], norm="forward")
+        # amp = 10 * np.log10(np.abs(amp))
+        # amp = np.abs(amp)
+        # sigma = 10.0
+        # prob = 1 - np.exp(-(amp**2) / (2 * sigma**2))
+        # prob = prob / 2 + 0.5
+
+        # fig, ax1 = plt.subplots()
+
+        # color = "tab:blue"
+        # ax1.set_xlabel("Frequency (Hz)")
+        # ax1.set_ylabel("Amplitude (dB)", color=color)
+        # ax1.plot(amp, color=color)
+        # ax1.tick_params(axis="y", labelcolor=color)
+
+        # ax2 = ax1.twinx()
+        # color = "tab:red"
+        # ax2.set_ylabel("Probability", color=color)
+        # ax2.plot(prob, color=color)
+        # ax2.tick_params(axis="y", labelcolor=color)
+        # ax2.set_ylim(0, 1)
+
+        # fig.tight_layout()
+        # plt.show()
+        # exit(0)
+
         pose_tx = pose_tx.reshape(-1, 4, 4)
         pose_rx = pose_rx.reshape(-1, 4, 4)
 
@@ -104,6 +131,12 @@ def run_sar(
 
             map = color_map(map_prob)[:, :, :3] * 255
             writer.append_data(map.astype(np.uint8))
+
+    # Save the final map as an image
+    map_log = np.max(map_logodds, axis=-1)
+    map_prob = 1.0 - 1.0 / (1.0 + np.exp(map_log))
+    final_map = color_map(map_prob)[:, :, :3] * 255
+    imageio.imwrite(f"{save_dir}/final_map.png", final_map.astype(np.uint8))
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ from .tdbp_prob import BackProjectionProb
 from .bpaf import AFBackProjection
 from .bp_filter import BackProjectionKF
 from .ra_mapping import RAmapping
+from .occu_map import OccupancySAR
 
 __all__ = [
     "BackProjection",
@@ -13,4 +14,5 @@ __all__ = [
     "BackProjectionProb",
     "RadarMap",
     "RAmapping",
+    "OccupancySAR",
 ]

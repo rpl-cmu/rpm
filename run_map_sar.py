@@ -1,4 +1,5 @@
 import os
+import cv2
 import tyro
 import time
 import numpy as np
@@ -7,8 +8,9 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from os.path import join as pjoin
 
+import jax
 from mmwcas.dataset import MIMODataset
-from sar import BackProjection, RadarMap
+from sar import BackProjection, RadarMap, OccupancySAR
 
 
 def run_sar(
@@ -18,7 +20,7 @@ def run_sar(
     save_video: bool = False,
     map_extent: float = 10.0,
     protect_range: float = 0.4,
-    azimuth_fov: float = 40.0,  # degree
+    azimuth_fov: float = 20.0,  # degree
     smooth_window: int = 1,
     resolution_scale: int = 1,
     amp_sigma: float = 0.2,
@@ -53,7 +55,7 @@ def run_sar(
     data_dir = folder
     seq_name = data_dir.split("/")[-1]
     name = str(int(time.time())) if name == "current_time" else name
-    save_dir = f"exps/{seq_name}_{name}"
+    save_dir = f"occusar/{seq_name}_{name}"
     os.makedirs(f"{save_dir}", exist_ok=True)
 
     dataset = MIMODataset(pjoin(data_dir, r), rx=rx, tx=tx)
@@ -72,6 +74,17 @@ def run_sar(
         resolution_scale,
         amp_sigma,
     )
+    occuMap = OccupancySAR(
+        back_projection.map,
+        n_sig,
+        amp_sigma,
+        back_projection.proc_range_res,
+        protect_range,
+        map_extent,
+        angle_fov=azimuth_fov,
+    )
+    log_map = occuMap.log_map
+    prob_mapping = jax.jit(occuMap.__call__)
 
     if save_video:
         writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=dataset.fps)
@@ -102,20 +115,16 @@ def run_sar(
                 pose_tx[b], pose_rx[b], sig[b], map_state
             )
 
+        log_map = prob_mapping(pose_tx[0], map_state, log_map)
+
         if save_video:
-            # map_abs = np.abs(map_state["complex"])
-            # left, right = np.percentile(map_abs, np.array([0.0, 99.5]))
-            # map_clip = (np.clip(map_abs, left, right) - left) / (right - left)
-            # map_clip = map_clip / np.max(map_clip)
-            map_abs = np.abs(map_state["complex"])
-            map_abs = map_abs / map_state["n_obs"]
-            map_abs *= map_state["n_obs"] > n_sig
-            prob = 1 - np.exp(-(map_abs**2) / (2 * amp_sigma**2))
-            map_clip = prob
+            prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
+            img = color_map(prob)[:, :, :3] * 255
+            writer.append_data(img.astype(np.uint8))
 
-            map = color_map(map_clip)[:, :, :3] * 255
-            writer.append_data(map.astype(np.uint8))
-
+    prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
+    img = color_map(prob)[:, :, :3] * 255
+    cv2.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8)[..., ::-1])
     back_projection.map.update_map(map_state)
     back_projection.map.visualize(save_dir, color_map="hot")
     back_projection.map.save(save_dir)

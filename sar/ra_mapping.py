@@ -1,3 +1,4 @@
+import numpy as np
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Complex, Float
@@ -16,7 +17,6 @@ class RAmapping:
         range_bin_min=5,
         range_bin_max=236,
         angle_3dB=30.0,
-        normalize_factor=10,
     ) -> None:
         # frame poses
         poses = dataset.chirp_poses[:, 0, 0, :, :]
@@ -35,11 +35,13 @@ class RAmapping:
         self.proc = RangeAzimuthProc(
             self.param,
             angele_fft_size=angele_fft_size,
-            range_bin_min=range_bin_min,
+            range_bin_min=0,
             range_bin_max=range_bin_max,
             angle_3dB=angle_3dB,
             output_normalize=False,
         )
+        self.range_mask = np.ones(range_bin_max, dtype=bool)
+        self.range_mask[:range_bin_min] = False
 
         cartisian = jnp.stack((self.proc.x_axis, self.proc.y_axis), axis=-1)
         r = jnp.linalg.norm(cartisian, axis=-1)
@@ -55,6 +57,8 @@ class RAmapping:
         self.range_res = self.param.rangeBinSize
         self.range_bin_min = range_bin_min
 
+        self.amp_sigma = 2.0
+
     def __call__(
         self,
         pose: Float[Array, "4 4"],
@@ -62,8 +66,19 @@ class RAmapping:
         cur_map: Float[Array, "H W"],
     ):
         ra = self.proc(sig_tensor)
-        ra_img = jnp.clip(jnp.log10(ra), -0.25, 1.0)
-        density = ra / 20.0
+        ra = ra * self.range_mask[:, None]
+
+        # log_odds = jnp.clip(jnp.log10(ra), -0.25, 1.0)
+        # db = 10 * jnp.log10(ra)
+        prob = 1 - jnp.exp(-(ra**2) / (2 * self.amp_sigma**2))
+        ang_mask = jnp.max(ra, axis=0) < 0.5
+        prob = prob * (1 - ang_mask[None, :]) + 0.5 * ang_mask[None, :]
+
+        log_odds = jnp.log(prob / ((1 - prob) + 1e-7))
+        log_odds = jnp.clip(log_odds, -0.25, jnp.inf)
+
+        # density = ra / 20.0
+        density = jnp.clip(jnp.log10(ra), 0, jnp.inf)
 
         alpha = 1 - jnp.exp(-density)
         w, h = alpha.shape
@@ -71,7 +86,7 @@ class RAmapping:
             jnp.concatenate([jnp.ones((1, h)), 1.0 - alpha + 1e-7], axis=0), axis=0
         )[:-1]
 
-        ra_img = transmission * ra_img
+        log_odds = transmission * log_odds
         # ra_img = jnp.clip(ra / 10.0, 0, 1) - 0.05
 
         idx = ((pose[:2, 3] - self.map.min_xy) // self.proc_range_res).astype(int)
@@ -95,7 +110,8 @@ class RAmapping:
         local_r = jnp.linalg.norm(local_c, axis=-1)
         local_t = jnp.arctan2(local_c[..., 1], local_c[..., 0])
 
-        mask_r = jnp.logical_and(local_r > self.min_r, local_r < self.max_r)
+        # mask_r = jnp.logical_and(local_r > self.min_r, local_r < self.max_r)
+        mask_r = local_r < self.max_r
         mask_t = jnp.logical_and(local_t > self.min_t, local_t < self.max_t)
         mask = jnp.logical_and(mask_r, mask_t)
 
@@ -103,7 +119,7 @@ class RAmapping:
         indx_a = (local_s / self.sin_res) + (self.ang_size // 2)
         indx_r = (local_r / self.range_res) - self.range_bin_min
 
-        val = jax.scipy.ndimage.map_coordinates(ra_img, (indx_r, indx_a), order=1)
+        val = jax.scipy.ndimage.map_coordinates(log_odds, (indx_r, indx_a), order=1)
         val = (val * mask).reshape(img_space.shape[:2])
 
         slice_idx = (idx[0] - self.map.patch_radius, idx[1] - self.map.patch_radius)

@@ -16,8 +16,9 @@ class BackProjection:
         map_extent: float = 10,  # meter
         protect_range: float = 0.5,  # meter
         azimuth_fov: float = 20,  # degree
-        smooth_window: int = 5,
+        smooth_window: int = 1,
         resolution_scale: int = 2,
+        amp_sigma: float = 0.5,
     ) -> None:
         # frame poses
         poses = dataset.chirp_poses[:, 0, 0, :, :]
@@ -32,6 +33,7 @@ class BackProjection:
         self.k = 2 * np.pi * (F0 / C)
         self.window = jnp.hanning(param.numADCSample)
 
+        self.amp_smooth = True if smooth_window > 1 else False
         self.smooth_kernel = jnp.ones(smooth_window) / smooth_window
 
         # radiation pattern parameters
@@ -46,6 +48,7 @@ class BackProjection:
             resolution=self.proc_range_res,
             poses=poses,
             map_extent=map_extent,
+            amp_sigma=amp_sigma,
         )
 
     def project_sig2D(
@@ -65,9 +68,11 @@ class BackProjection:
         r = (rtx + rrx) * 0.5
         sig = sig - jnp.mean(sig)
         sig_fft = jnp.fft.fft(self.window * sig, n=self.fft_len, norm="forward")
-        mag = jnp.abs(sig_fft)
-        mag_smooth = jnp.convolve(mag, self.smooth_kernel, mode="same")
-        sig_fft = sig_fft / mag * mag_smooth
+
+        if self.amp_smooth:
+            mag = jnp.abs(sig_fft)
+            mag_smooth = jnp.convolve(mag, self.smooth_kernel, mode="same")
+            sig_fft = sig_fft / mag * mag_smooth
 
         idx = (r // self.proc_range_res).astype(int)
         sig_min, sig_max = sig_fft[idx], sig_fft[idx + 1]
