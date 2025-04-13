@@ -93,7 +93,7 @@ class RadarMap:
     def save_probmap(self, save_path: str, prob_map: np.ndarray):
         data = prob_map
         resolution = self.resolution
-        w, h = self.grid.shape[:2]
+        h, w = self.grid.shape[:2]
         t = [self.grid[0, 0, 0], self.grid[0, 0, 1], 0]
         r = [0.0, 0.0, 0.0, 0.0]
         map_data = {
@@ -109,7 +109,6 @@ class RadarMap:
 
     @staticmethod
     def load(load_dir: str) -> RadarMap:
-        # return dict(np.load(f"{load_dir}/map_state.npz"))
         with open(f"{load_dir}/map.pkl", "rb") as f:
             return pickle.load(f)
 

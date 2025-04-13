@@ -75,8 +75,9 @@ def run_sar(
         if save_video:
             writer.append_data(img.astype(np.uint8))
 
-    imageio.imwrite(f"{save_dir}/ra_map.png", img.astype(np.uint8))
-
+    imageio.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8))
+    p = 1.0 - 1.0 / (1.0 + np.exp(log_odds))
+    mapper.map.save_probmap(f"{save_dir}/prob.pkl", p)
 
 if __name__ == "__main__":
     cli = tyro.cli(run_sar)
