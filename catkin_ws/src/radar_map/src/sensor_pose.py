@@ -94,8 +94,8 @@ class SensorPose:
                 'time': time,
                 'data': data,
                 'resolution': resolution,
-                'width': w,
-                'height': h,
+                'width': h,
+                'height': w,
                 't':[t.x, t.y, t.z],
                 'r':[r.x, r.y, r.z, r.w], 
             }
