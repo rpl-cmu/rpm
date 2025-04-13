@@ -19,11 +19,17 @@ def run_sar(
     name: str = "current_time",
     save_video: bool = False,
     map_extent: float = 10.0,
-    protect_range: float = 0.4,
-    azimuth_fov: float = 20.0,  # degree
+    protect_range: float = 0.3,
+    resolution: float = 0.1,
+    azimuth_fov: float = 20.0,
     smooth_window: int = 1,
     resolution_scale: int = 1,
     amp_sigma: float = 0.2,
+    ang_res: float = 0.5,
+    prob_hit: float = 0.7,
+    prob_miss: float = 0.4,
+    clamp_log_max: float = 3.5,  # 0.97
+    clamp_log_min: float = -2.0,  # 0.12
     max_batch: int = 512,
     r: str = "radar0",
     rx: list[int] = [0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 10, 11, 12, 13, 14, 15],
@@ -33,17 +39,24 @@ def run_sar(
 
     Args:
         folder: path to the dataset
-        name: name of the experiment
-        load: path to the existing map folder
-        save_video: save the mapping process as a video
-        map_extent: distance to extent from pose position to create the map
-        protect_range: minimum range to process from pose position
-        azimuth_fov: field of view of the azimuth angle (degree)
-        smooth_window: window size for freqeuncy spectrum peak suppression
-        max_batch: batch size for the mapping process
+        name: name of the output folder
+        save_video: whether to save the video
+        map_extent: extent of the map in meters
+        protect_range: range to protect in meters
+        azimuth_fov: azimuth field of view in degrees
+        smooth_window: smoothing window size
+        resolution_scale: scale fft resolution
+        resolution: map resolution in meters
+        amp_sigma: amplitude sigma for the probability map
+        ang_res: angular resolution in degrees
+        prob_hit: probability of hit
+        prob_miss: probability of miss
+        clamp_log_max: maximum value for the log map
+        clamp_log_min: minimum value for the log map
+        max_batch: maximum batch size
         r: radar name
-        rx: receive antennas idx (leave empty if want to use all antennas)
-        tx: transmit antennas idx (leave empty if want to use all antennas)
+        rx: list of receive antennas
+        tx: list of transmit antennas
     """
 
     # load existing map
@@ -55,7 +68,7 @@ def run_sar(
     data_dir = folder
     seq_name = data_dir.split("/")[-1]
     name = str(int(time.time())) if name == "current_time" else name
-    save_dir = f"occusar/{seq_name}_{name}"
+    save_dir = f"exps/map_sar/{seq_name}_{name}"
     os.makedirs(f"{save_dir}", exist_ok=True)
 
     dataset = MIMODataset(pjoin(data_dir, r), rx=rx, tx=tx)
@@ -63,7 +76,7 @@ def run_sar(
     print(
         f"synthetic antennas: {len(dataset)} x {dataset.adc.param.numChirp} x {len(dataset.rx)} x {len(dataset.tx)}"
     )
-    n_sig = dataset.adc.param.numChirp * len(dataset.rx) * len(dataset.tx)
+    n_sig = dataset.adc.param.numChirp  # * len(dataset.rx) * len(dataset.tx)
 
     back_projection = BackProjection(
         dataset,
@@ -72,6 +85,7 @@ def run_sar(
         azimuth_fov,
         smooth_window,
         resolution_scale,
+        resolution,
         amp_sigma,
     )
     occuMap = OccupancySAR(
@@ -82,13 +96,18 @@ def run_sar(
         protect_range,
         map_extent,
         angle_fov=azimuth_fov,
+        ang_res=ang_res,
+        prob_hit=prob_hit,
+        prob_miss=prob_miss,
+        clamp_log_max=clamp_log_max,
+        clamp_log_min=clamp_log_min,
     )
     log_map = occuMap.log_map
     prob_mapping = jax.jit(occuMap.__call__)
 
     if save_video:
         writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=dataset.fps)
-        color_map = plt.get_cmap("hot")
+        color_map = plt.get_cmap("bone")
 
     map_state = back_projection.map.get_map()
     num_samples = dataset.adc.param.numADCSample
@@ -119,15 +138,16 @@ def run_sar(
 
         if save_video:
             prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
-            img = color_map(prob)[:, :, :3] * 255
+            img = color_map(1-prob)[:, :, :3] * 255
             writer.append_data(img.astype(np.uint8))
 
     prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
-    img = color_map(prob)[:, :, :3] * 255
+    img = color_map(1-prob)[:, :, :3] * 255
     cv2.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8)[..., ::-1])
     back_projection.map.update_map(map_state)
     back_projection.map.visualize(save_dir, color_map="hot")
     back_projection.map.save(save_dir)
+    back_projection.map.save_probmap(f"{save_dir}/prob.pkl", prob)
 
 
 if __name__ == "__main__":

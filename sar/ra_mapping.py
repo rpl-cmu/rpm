@@ -12,52 +12,58 @@ class RAmapping:
         self,
         dataset: ChirpPoseDataset,
         map_extent: float = 10,  # meter
-        resolution_scale: int = 2,
-        angele_fft_size=256,
-        range_bin_min=5,
-        range_bin_max=236,
-        angle_3dB=30.0,
+        resolution: float = 0.1,
+        protect_range: float = 0.3,
+        angle_3dB: float = 20.0,
+        amp_sigma: float = 2.0,
+        prob_hit: float = 1,
+        prob_miss: float = 0.45,
+        clamp_log_max: float = 3.5,  # 0.97
+        clamp_log_min: float = -2.0,  # 0.12
+        angele_fft_size: int = 256,
     ) -> None:
         # frame poses
         poses = dataset.chirp_poses[:, 0, 0, :, :]
         self.param = dataset.adc.param
 
         # map parameters
-        self.proc_range_res = self.param.rangeResolution / resolution_scale
-        self.fft_len = self.param.numADCSample * resolution_scale
+        self.proc_range_res = resolution
         self.map = RadarMap(
             resolution=self.proc_range_res,
             poses=poses,
             map_extent=map_extent,
         )
         self.map_val = jnp.zeros(self.map.grid.shape[:2], dtype=jnp.float32)
-
+        self.range_bin_min = int(protect_range / self.param.rangeBinSize) - 1
+        range_bin_max = int(map_extent / self.param.rangeBinSize) + 1
         self.proc = RangeAzimuthProc(
             self.param,
             angele_fft_size=angele_fft_size,
-            range_bin_min=0,
+            range_bin_min=self.range_bin_min,
             range_bin_max=range_bin_max,
             angle_3dB=angle_3dB,
             output_normalize=False,
         )
         self.range_mask = np.ones(range_bin_max, dtype=bool)
-        self.range_mask[:range_bin_min] = False
+        self.range_mask[: self.range_bin_min] = False
 
         cartisian = jnp.stack((self.proc.x_axis, self.proc.y_axis), axis=-1)
         r = jnp.linalg.norm(cartisian, axis=-1)
         theta = jnp.arctan2(cartisian[..., 1], cartisian[..., 0])
         self.polar = jnp.stack((r, theta), axis=-1)
-        self.min_r, self.max_r = jnp.min(r), jnp.max(r)
         self.min_t, self.max_t = jnp.min(theta), jnp.max(theta)
+        self.min_r, self.max_r = protect_range, map_extent
 
         afft_size = self.proc.azimuth_proc.angle_fft_size
         self.sin_res = 2.0 / (afft_size - 1)
         self.ang_size = cartisian.shape[1]
-
         self.range_res = self.param.rangeBinSize
-        self.range_bin_min = range_bin_min
 
-        self.amp_sigma = 2.0
+        self.amp_sigma = amp_sigma
+        self.prob_hit = prob_hit
+        self.prob_miss = prob_miss
+        self.clamp_log_max = clamp_log_max
+        self.clamp_log_min = clamp_log_min
 
     def __call__(
         self,
@@ -65,30 +71,26 @@ class RAmapping:
         sig_tensor: Complex[Array, "sample chirp rx tx"],
         cur_map: Float[Array, "H W"],
     ):
+        # calculate local RA map and probability
         ra = self.proc(sig_tensor)
-        ra = ra * self.range_mask[:, None]
-
-        # log_odds = jnp.clip(jnp.log10(ra), -0.25, 1.0)
-        # db = 10 * jnp.log10(ra)
         prob = 1 - jnp.exp(-(ra**2) / (2 * self.amp_sigma**2))
         ang_mask = jnp.max(ra, axis=0) < 0.5
         prob = prob * (1 - ang_mask[None, :]) + 0.5 * ang_mask[None, :]
 
-        log_odds = jnp.log(prob / ((1 - prob) + 1e-7))
-        log_odds = jnp.clip(log_odds, -0.25, jnp.inf)
-
-        # density = ra / 20.0
+        # model density from RA values
         density = jnp.clip(jnp.log10(ra), 0, jnp.inf)
-
         alpha = 1 - jnp.exp(-density)
         w, h = alpha.shape
-        transmission = jnp.cumprod(
+        transmittance = jnp.cumprod(
             jnp.concatenate([jnp.ones((1, h)), 1.0 - alpha + 1e-7], axis=0), axis=0
         )[:-1]
 
-        log_odds = transmission * log_odds
-        # ra_img = jnp.clip(ra / 10.0, 0, 1) - 0.05
+        # apply density to the log odds
+        prob = jnp.clip(prob, self.prob_miss, self.prob_hit)
+        log_odds = jnp.log(prob / (1 - prob + 1e-7))
+        log_odds = transmittance * log_odds
 
+        # map value to map cells
         idx = ((pose[:2, 3] - self.map.min_xy) // self.proc_range_res).astype(int)
         img_space = jax.lax.dynamic_slice(
             self.map.grid,
@@ -110,7 +112,6 @@ class RAmapping:
         local_r = jnp.linalg.norm(local_c, axis=-1)
         local_t = jnp.arctan2(local_c[..., 1], local_c[..., 0])
 
-        # mask_r = jnp.logical_and(local_r > self.min_r, local_r < self.max_r)
         mask_r = local_r < self.max_r
         mask_t = jnp.logical_and(local_t > self.min_t, local_t < self.max_t)
         mask = jnp.logical_and(mask_r, mask_t)
@@ -122,6 +123,11 @@ class RAmapping:
         val = jax.scipy.ndimage.map_coordinates(log_odds, (indx_r, indx_a), order=1)
         val = (val * mask).reshape(img_space.shape[:2])
 
+        # # protect range mask
+        protect_mask = (local_r <= self.min_r).reshape(img_space.shape[:2])
+        val = jnp.where(protect_mask, -2, val)
+
+        # update log_odds map
         slice_idx = (idx[0] - self.map.patch_radius, idx[1] - self.map.patch_radius)
         mval = jax.lax.dynamic_slice(
             cur_map,
@@ -130,5 +136,6 @@ class RAmapping:
         )
 
         cur_map = jax.lax.dynamic_update_slice(cur_map, mval + val, slice_idx)
-        cur_map = jnp.clip(cur_map, -2, 3.5)
+        cur_map = jnp.clip(cur_map, self.clamp_log_min, self.clamp_log_max)
+
         return cur_map

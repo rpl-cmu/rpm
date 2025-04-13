@@ -2,19 +2,18 @@ __pycache__
 *.mp4
 .vscode/
 *.npy
-exps/
-ramap/
 
 build/
 devel/
 catkin_ws/src/CMakeLists.txt
 .catkin_workspace
-<<<<<<< HEAD
 .catkin_tools/
-build/
-devel/
 logs/
-=======
+
+exps/
+ramap/
+archive/
 exps_prob/
 occusar/
->>>>>>> 7f65a3536901fca5ac18c320b00d237e9495c287
+map_sar/
+map_ra/

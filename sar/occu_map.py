@@ -16,8 +16,12 @@ class OccupancySAR:
         range_res: float,
         range_min: float,
         range_max: float,
-        ang_res: float = 0.2,
+        ang_res: float = 0.5,
         angle_fov: float = 20.0,
+        prob_hit: float = 0.7,
+        prob_miss: float = 0.4,
+        clamp_log_max: float = 3.5,  # 0.97
+        clamp_log_min: float = -2.0,  # 0.12
     ) -> None:
 
         self.map = map
@@ -42,6 +46,10 @@ class OccupancySAR:
         self.ang_size = len(thetas)
 
         self.log_map = jnp.zeros(map.grid.shape[:2], dtype=jnp.float32)
+        self.prob_hit = prob_hit
+        self.prob_miss = prob_miss
+        self.clamp_log_max = clamp_log_max
+        self.clamp_log_min = clamp_log_min
 
     def __call__(
         self,
@@ -49,6 +57,7 @@ class OccupancySAR:
         map_state: dict,
         cur_map: Float[Array, "H W"],
     ):
+        # calculate probability and local RA map
         map_abs = jnp.abs(map_state["complex"])
         mask = jnp.logical_and(
             map_state["n_obs"] > self.n_sig_thresh, map_state["update"]
@@ -63,17 +72,18 @@ class OccupancySAR:
         ra_val = ra_val.reshape(self.local_grid.shape[:2])
         prob = 1 - jnp.exp(-(ra_val**2) / (2 * self.amp_sigma**2))
 
-        # density = ra_val
+        # calculate density & transmitance along the range ray
         density = jnp.clip(jnp.log10(ra_val), 0, jnp.inf)
         alpha = 1 - jnp.exp(-density)
         w, h = alpha.shape
-        transmission = jnp.cumprod(
+        transmitance = jnp.cumprod(
             jnp.concatenate([jnp.ones((1, h)), 1.0 - alpha + 1e-7], axis=0), axis=0
         )[:-1]
 
-        prob = jnp.clip(prob, 0.4, 0.7)
-        log_odds = jnp.log(prob / (1 - prob + 1e-10))
-        log_odds = log_odds * transmission
+        # apply density rule to the probability map
+        prob = jnp.clip(prob, self.prob_miss, self.prob_hit)
+        log_odds = jnp.log(prob / (1 - prob + 1e-7))
+        log_odds = log_odds * transmitance
 
         idx = ((pose[:2, 3] - self.map.min_xy) // self.r_res).astype(int)
         img_space = jax.lax.dynamic_slice(
@@ -103,12 +113,17 @@ class OccupancySAR:
         val = jax.scipy.ndimage.map_coordinates(log_odds, (indx_r, indx_a), order=1)
         val = val.reshape(img_space.shape[:2]) * mask_local
 
+        # protect range mask
+        protect_mask = (local_r <= self.r_min).reshape(img_space.shape[:2])
+        val = jnp.where(protect_mask, -2, val)
+
         slice_idx = (idx[0] - self.map.patch_radius, idx[1] - self.map.patch_radius)
         mval = jax.lax.dynamic_slice(
             cur_map,
             slice_idx,
             (2 * self.map.patch_radius, 2 * self.map.patch_radius),
         )
+
         cur_map = jax.lax.dynamic_update_slice(cur_map, mval + val, slice_idx)
-        cur_map = jnp.clip(cur_map, -2, 3.5)
+        cur_map = jnp.clip(cur_map, self.clamp_log_min, self.clamp_log_max)
         return cur_map

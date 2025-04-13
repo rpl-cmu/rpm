@@ -18,9 +18,10 @@ def run_sar(
     save_video: bool = False,
     map_extent: float = 10.0,
     protect_range: float = 0.4,
-    azimuth_fov: float = 40.0,  # degree
+    azimuth_fov: float = 20.0,  # degree
     smooth_window: int = 1,
     resolution_scale: int = 1,
+    resolution:float = 0.1,
     amp_sigma: float = 0.2,
     max_batch: int = 512,
     r: str = "radar0",
@@ -31,17 +32,19 @@ def run_sar(
 
     Args:
         folder: path to the dataset
-        name: name of the experiment
-        load: path to the existing map folder
-        save_video: save the mapping process as a video
-        map_extent: distance to extent from pose position to create the map
-        protect_range: minimum range to process from pose position
-        azimuth_fov: field of view of the azimuth angle (degree)
-        smooth_window: window size for freqeuncy spectrum peak suppression
-        max_batch: batch size for the mapping process
+        name: name of the output folder
+        save_video: whether to save the video
+        map_extent: extent of the map in meters
+        protect_range: range to protect in meters
+        azimuth_fov: azimuth field of view in degrees
+        smooth_window: smoothing window size
+        resolution_scale: scale fft resolution
+        resolution: map resolution in meters
+        amp_sigma: amplitude sigma for the probability map
+        max_batch: maximum batch size
         r: radar name
-        rx: receive antennas idx (leave empty if want to use all antennas)
-        tx: transmit antennas idx (leave empty if want to use all antennas)
+        rx: list of receive antennas
+        tx: list of transmit antennas
     """
 
     # load existing map
@@ -70,6 +73,7 @@ def run_sar(
         azimuth_fov,
         smooth_window,
         resolution_scale,
+        resolution,
         amp_sigma,
     )
 

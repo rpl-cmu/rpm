@@ -90,10 +90,10 @@ class SensorPose:
             r = self.map_cache.info.origin.orientation
             map_data = {
                 'time': time,
-                'data': np.asarray(data).reshape((h, w)),
+                'data': np.asarray(data).reshape((h, w)).T,
                 'resolution': resolution,
-                'width': w,
-                'height': h,
+                'width': h,
+                'height': w,
                 't':[t.x, t.y, t.z],
                 'r':[r.x, r.y, r.z, r.w], 
             }

@@ -17,7 +17,8 @@ class BackProjection:
         protect_range: float = 0.5,  # meter
         azimuth_fov: float = 20,  # degree
         smooth_window: int = 1,
-        resolution_scale: int = 2,
+        resolution_scale: int = 1,
+        resolution: float = 0.1,
         amp_sigma: float = 0.5,
     ) -> None:
         # frame poses
@@ -42,7 +43,8 @@ class BackProjection:
 
         # map parameters
         self.protect_range = protect_range
-        self.proc_range_res = param.rangeResolution / resolution_scale
+        self.proc_range_res = resolution
+        self.sig_range_res = param.rangeResolution  / resolution_scale
         self.fft_len = param.numADCSample * resolution_scale
         self.map = RadarMap(
             resolution=self.proc_range_res,
@@ -74,11 +76,11 @@ class BackProjection:
             mag_smooth = jnp.convolve(mag, self.smooth_kernel, mode="same")
             sig_fft = sig_fft / mag * mag_smooth
 
-        idx = (r // self.proc_range_res).astype(int)
+        idx = (r // self.sig_range_res).astype(int)
         sig_min, sig_max = sig_fft[idx], sig_fft[idx + 1]
         sig_at_r = (
             sig_min
-            + (r % self.proc_range_res) * (sig_max - sig_min) / self.proc_range_res
+            + (r % self.sig_range_res) * (sig_max - sig_min) / self.sig_range_res
         )
 
         ray_dot = (pixels - pts) @ ray_v / r
