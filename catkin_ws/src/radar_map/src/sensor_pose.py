@@ -88,17 +88,17 @@ class SensorPose:
             h = self.map_cache.info.height
             t = self.map_cache.info.origin.position
             r = self.map_cache.info.origin.orientation
+            data = np.asarray(data).reshape((h, w)).astype(np.float32)/100.0
+
             map_data = {
                 'time': time,
-                'data': np.asarray(data).reshape((h, w)),
+                'data': data,
                 'resolution': resolution,
                 'width': w,
                 'height': h,
                 't':[t.x, t.y, t.z],
                 'r':[r.x, r.y, r.z, r.w], 
             }
-            # Save the map data to a file
-            
 
             with open(self.save_file, 'wb') as f:
                 pickle.dump(map_data, f)
