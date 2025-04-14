@@ -2,6 +2,7 @@ from typing import Tuple, List, Callable
 import numpy as np
 from enum import Enum
 from functools import partial
+import warnings
 
 
 class StartSamplingMethod(Enum):
@@ -9,12 +10,21 @@ class StartSamplingMethod(Enum):
     ROOM = 1
 
 
-def startSamplingFreeSpace(map: np.ndarray) -> np.ndarray:
-    # TODO
-    pass
+def startSamplingFreeSpace(map: np.ndarray, num_starts: int) -> np.ndarray:
+    valid_indices = np.argwhere(map < 0.5)
+
+    if len(valid_indices) < num_starts:
+        warnings.warn(f"Not enough free space to sample {num_starts} points")
+
+    selected_indices = np.random.choice(
+        len(valid_indices), size=num_starts, replace=False
+    )
+    return valid_indices[selected_indices]
 
 
-def startSamplingInRooms(map: np.ndarray, obboxes: List[np.ndarray]) -> np.ndarray:
+def startSamplingInRooms(
+    map: np.ndarray, num_starts: int, obboxes: List[np.ndarray]
+) -> np.ndarray:
     """
     obboxes: oriented bounding box - assuming we'll need some
     """
@@ -24,7 +34,7 @@ def startSamplingInRooms(map: np.ndarray, obboxes: List[np.ndarray]) -> np.ndarr
 
 def startSamplingFactory(
     sampling_type: StartSamplingMethod, obboxes: List[np.ndarray]
-) -> Callable[[np.ndarray], np.ndarray]:
+) -> Callable[[np.ndarray, int], np.ndarray]:
     """
     Returns a function that takes in a map, returns a np.ndarray (n, 2) representing all of the starts
     """
@@ -42,9 +52,18 @@ class GoalSamplingMethod(Enum):
     ROOM = 2  # A different room from Start
 
 
-def goalSamplingFreeSpace(map: np.ndarray, _: np.ndarray) -> np.ndarray:
+def goalSamplingFreeSpace(map: np.ndarray, start: np.ndarray) -> np.ndarray:
     """ """
-    pass
+    valid_indices = np.argwhere(map < 0.5)
+    num_goals = len(start)
+
+    if len(valid_indices) < num_goals:
+        warnings.warn(f"Not enough free space to sample {num_goals} points")
+
+    selected_indices = np.random.choice(
+        len(valid_indices), size=num_goals, replace=False
+    )
+    return valid_indices[selected_indices]
 
 
 def goalSamplingMinSeparation(

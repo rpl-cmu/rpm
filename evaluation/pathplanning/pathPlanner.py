@@ -7,12 +7,15 @@ from typing import Callable
 def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
     # Check if start or goal positions are valid
     if (
-        map[tuple(start)] != 0
-        or map[tuple(goal)] != 0
-        or not (0 <= start[0] < map.shape[0] and 0 <= start[1] < map.shape[1])
+        not (0 <= start[0] < map.shape[0] and 0 <= start[1] < map.shape[1])
         or not (0 <= goal[0] < map.shape[0] and 0 <= goal[1] < map.shape[1])
     ):
         return []
+    
+    directions = np.array([[-1, 0], [0, 1], [1, 0], [0, -1], 
+                           [-1, 1], [1, 1], [1, -1], [-1, -1]])
+    
+    movement_cost = np.array([1, 1, 1, 1, 1.414, 1.414, 1.414, 1.414])
 
     # Initialize data structures
     start_tuple = tuple(start)
@@ -51,12 +54,13 @@ def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
                 current = came_from[current]
             path.append(start_tuple)
             path.reverse()
-            return path
+            retPath = np.asarray(path)
+            return np.hstack((retPath[:, 1].reshape((-1, 1)), retPath[:, 0].reshape((-1, 1))))
 
         # Explore neighbors
         current_pos = np.array(current)
 
-        for i, direction in enumerate(self.directions):
+        for i, direction in enumerate(directions):
             neighbor = current_pos + direction
             neighbor_tuple = tuple(neighbor)
 
@@ -67,11 +71,11 @@ def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
                 continue
 
             # Check if neighbor is obstacle-free
-            if map[neighbor_tuple] != 0:
+            if map[neighbor_tuple] >= 0.5:
                 continue
 
             # Calculate tentative g_score for this neighbor
-            tentative_g_score = g_score[current] + self.movement_cost[i]
+            tentative_g_score = g_score[current] + movement_cost[i]
 
             # If this path to neighbor is better than any previous one
             if (
