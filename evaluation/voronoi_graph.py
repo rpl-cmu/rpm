@@ -5,9 +5,12 @@ from skimage.feature import peak_local_max
 from skimage.morphology import skeletonize
 from scipy.spatial import Voronoi
 import networkx as nx
+import pickle as pkl
+from pathlib import Path
+import tyro
 
 
-def generate_voronoi_from_probability_map(prob_map, threshold=0.5, min_distance=5):
+def generate_voronoi_from_probability_map(prob_map, threshold=0.4, min_distance=0.1):
     """
     Generate a Voronoi graph from a 2D probability map for path planning.
 
@@ -39,7 +42,7 @@ def generate_voronoi_from_probability_map(prob_map, threshold=0.5, min_distance=
 
     # Create a skeleton of the distance transform
     # This gives us the Voronoi edges (equidistant from obstacles)
-    skeleton = skeletonize(dist_norm > 0.1)  # Adjust threshold as needed
+    skeleton = skeletonize(dist_norm > min_distance)  # Adjust threshold as needed
 
     # Create a graph from the skeleton
     G = nx.Graph()
@@ -87,7 +90,7 @@ def plot_results(prob_map, G, skeleton, path=None):
     path : list, optional
         List of node indices representing a path
     """
-    fig, axs = plt.subplots(1, 3, figsize=(18, 6))
+    fig, axs = plt.subplots(3, 1, figsize=(6, 18))
 
     # Plot probability map
     axs[0].imshow(prob_map, cmap="gray")
@@ -228,8 +231,21 @@ def example_usage():
     plot_results(prob_map, G, skeleton, path)
 
 
+def main(map_file: Path):
+    pred_map = pkl.load(open(map_file, "rb"))
+    prob_map = pred_map["data"].astype(np.float32)
+    # Generate Voronoi graph from probability map
+    G, skeleton = generate_voronoi_from_probability_map(
+        prob_map, threshold=0.45, min_distance=0.2
+    )
+
+    # Plot results
+    plot_results(prob_map, G, skeleton)
+
+
 if __name__ == "__main__":
-    example_usage()
+    # example_usage()
+    tyro.cli(main)
 
 
 # For custom probability map input:
