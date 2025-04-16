@@ -10,7 +10,8 @@ catkin_ws/src/CMakeLists.txt
 .catkin_tools/
 logs/
 
-exps/
+exps*/
+wandb/
 ramap/
 archive/
 exps_prob/

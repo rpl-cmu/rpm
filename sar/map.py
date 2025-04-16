@@ -159,7 +159,7 @@ class RadarMap:
         to_png(save_dir, map_clip, "map_clip.png")
 
         # rayleigh
-        map_norm = map_abs / map_state["n_obs"]
+        map_norm = map_abs / (map_state["n_obs"] + 1)
         map_norm *= map_state["n_obs"] > 64
         prob = 1 - np.exp(-(map_norm**2) / (2 * self.amp_sigma**2))
         to_png(save_dir, prob, "map_rayleigh.png")
@@ -174,7 +174,7 @@ class RadarMap:
         # variance
         map_variance = self.get_phase_variance(map_state)
         map_variance = map_variance / np.max(map_variance)
-        to_png(save_dir, map_variance, "map_variance.png")
+        to_png(save_dir, map_variance, "map_phase_var.png")
 
         # # variance scaled
         # map_scaled = map_abs / map_variance

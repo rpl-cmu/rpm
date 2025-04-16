@@ -1,6 +1,7 @@
 import os
 import cv2
 import tyro
+import wandb
 import time
 import numpy as np
 import imageio
@@ -22,18 +23,20 @@ def run_sar(
     protect_range: float = 0.3,
     resolution: float = 0.1,
     azimuth_fov: float = 20.0,
+    bp_extra_fov: float = 10.0,
     smooth_window: int = 1,
     resolution_scale: int = 1,
-    amp_sigma: float = 0.2,
+    amp_sigma: float = 0.15,
     ang_res: float = 0.5,
-    prob_hit: float = 0.7,
+    prob_hit: float = 0.99,
     prob_miss: float = 0.4,
     clamp_log_max: float = 3.5,  # 0.97
     clamp_log_min: float = -2.0,  # 0.12
     max_batch: int = 512,
     r: str = "radar0",
-    rx: list[int] = [0, 1, 2, 3, 4, 5, 6, 8, 7, 9, 10, 11, 12, 13, 14, 15],
-    tx: list[int] = [0],
+    rx: list[int] = [],
+    tx: list[int] = [],
+    en_wandb: bool = False,
 ) -> None:
     """Run the SAR mapping process
 
@@ -44,26 +47,32 @@ def run_sar(
         map_extent: extent of the map in meters
         protect_range: range to protect in meters
         azimuth_fov: azimuth field of view in degrees
+        bp_extra_fov: extra field of view for back projection in degrees
         smooth_window: smoothing window size
         resolution_scale: scale fft resolution
         resolution: map resolution in meters
         amp_sigma: amplitude sigma for the probability map
-        ang_res: angular resolution in degrees
+        ang_res: angular resolution in degrees for prob mapping
         prob_hit: probability of hit
         prob_miss: probability of miss
         clamp_log_max: maximum value for the log map
         clamp_log_min: minimum value for the log map
         max_batch: maximum batch size
         r: radar name
-        rx: list of receive antennas
-        tx: list of transmit antennas
+        rx: list of receive antennas (leave empty to use all)
+        tx: list of transmit antennas (leave empty to use all)
+        en_wandb: whether to enable wandb logging (will override name)
     """
-
+    print(folder)
     # load existing map
     if load:
         map_sar = RadarMap.load(load)
         map_sar.visualize(load, color_map="hot")
         return
+
+    if en_wandb:
+        wandb.init(project="mm_map", config=locals())
+        name = wandb.run.name
 
     data_dir = folder
     seq_name = data_dir.split("/")[-1]
@@ -82,7 +91,7 @@ def run_sar(
         dataset,
         map_extent,
         protect_range,
-        azimuth_fov,
+        azimuth_fov + bp_extra_fov,
         smooth_window,
         resolution_scale,
         resolution,
@@ -104,10 +113,10 @@ def run_sar(
     )
     log_map = occuMap.log_map
     prob_mapping = jax.jit(occuMap.__call__)
+    color_map = plt.get_cmap("bone")
 
     if save_video:
         writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=dataset.fps)
-        color_map = plt.get_cmap("bone")
 
     map_state = back_projection.map.get_map()
     num_samples = dataset.adc.param.numADCSample
@@ -138,16 +147,23 @@ def run_sar(
 
         if save_video:
             prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
-            img = color_map(1-prob)[:, :, :3] * 255
+            img = color_map(1 - prob)[:, :, :3] * 255
             writer.append_data(img.astype(np.uint8))
 
     prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
-    img = color_map(1-prob)[:, :, :3] * 255
+    img = color_map(1 - prob)[:, :, :3] * 255
     cv2.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8)[..., ::-1])
     back_projection.map.update_map(map_state)
     back_projection.map.visualize(save_dir, color_map="hot")
-    back_projection.map.save(save_dir)
     back_projection.map.save_probmap(f"{save_dir}/prob.pkl", prob)
+    # back_projection.map.save(save_dir)
+
+    if en_wandb:
+        log_files = os.listdir(save_dir)
+        for file in log_files:
+            if file.endswith(".png"):
+                wandb.log({file.split(".")[0]: wandb.Image(pjoin(save_dir, file))})
+        wandb.finish()
 
 
 if __name__ == "__main__":

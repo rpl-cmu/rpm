@@ -62,18 +62,19 @@ class OccupancySAR:
         mask = jnp.logical_and(
             map_state["n_obs"] > self.n_sig_thresh, map_state["update"]
         )
-        map_abs = mask * (map_abs / map_state["n_obs"])
+        map_norm = mask * (map_abs / (map_state["n_obs"]+1))
+        # map_norm = mask * map_abs
 
         g_pos = jnp.matmul(pose, self.local_grid.reshape(-1, 4).T).T
         g_pos = g_pos[:, :2]
         indx_pos = (g_pos - self.origin) / self.map.resolution
 
-        ra_val = jax.scipy.ndimage.map_coordinates(map_abs, indx_pos.T, order=1)
+        ra_val = jax.scipy.ndimage.map_coordinates(map_norm, indx_pos.T, order=1)
         ra_val = ra_val.reshape(self.local_grid.shape[:2])
         prob = 1 - jnp.exp(-(ra_val**2) / (2 * self.amp_sigma**2))
 
         # calculate density & transmitance along the range ray
-        density = jnp.clip(jnp.log10(ra_val), 0, jnp.inf)
+        density = jnp.clip(jnp.log2(ra_val), 0, jnp.inf)
         alpha = 1 - jnp.exp(-density)
         w, h = alpha.shape
         transmitance = jnp.cumprod(
