@@ -56,7 +56,7 @@ def run_sar(
     data_dir = folder
     seq_name = data_dir.split("/")[-1]
     name = str(int(time.time())) if name == "current_time" else name
-    save_dir = f"exps_prob/{seq_name}_{name}"
+    save_dir = f"exps/prob_sar/{seq_name}_{name}"
     os.makedirs(f"{save_dir}", exist_ok=True)
 
     dataset = MIMODataset(pjoin(data_dir, r), rx=rx, tx=tx)
@@ -71,7 +71,7 @@ def run_sar(
 
     if save_video:
         writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=dataset.fps)
-        color_map = plt.get_cmap("hot")
+        color_map = plt.get_cmap("bone")
 
     map_logodds = back_projection.map_logodds
     num_samples = dataset.adc.param.numADCSample
@@ -129,13 +129,13 @@ def run_sar(
             map_log = np.max(map_logodds, axis=-1)
             map_prob = 1.0 - 1.0 / (1.0 + np.exp(map_log))
 
-            map = color_map(map_prob)[:, :, :3] * 255
+            map = color_map(1-map_prob)[:, :, :3] * 255
             writer.append_data(map.astype(np.uint8))
 
     # Save the final map as an image
     map_log = np.max(map_logodds, axis=-1)
     map_prob = 1.0 - 1.0 / (1.0 + np.exp(map_log))
-    final_map = color_map(map_prob)[:, :, :3] * 255
+    final_map = color_map(1-map_prob)[:, :, :3] * 255
     imageio.imwrite(f"{save_dir}/final_map.png", final_map.astype(np.uint8))
 
 
