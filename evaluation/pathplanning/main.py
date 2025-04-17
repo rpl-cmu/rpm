@@ -12,7 +12,7 @@ from ExperimentRunner import (
     PathPlanningTaskConfig,
     PathPlanningTaskParams,
 )
-from startGoalGeneration import StartSamplingMethod, GoalSamplingMethod
+from start_end_sampling.startGoalGeneration import StartSamplingMethod, GoalSamplingMethod
 from pathPlanner import PlannerType
 
 
@@ -41,20 +41,36 @@ def visualizePaths(
     plt.tight_layout()
     plt.show()
 
+def visualizeStartEnds(starts: np.ndarray, goals: np.ndarray, map: np.ndarray):
+    plt.plot(starts[:, 1], starts[:, 0], 'ro')
+    plt.plot(goals[:, 1], goals[:, 0], 'wx')
+    # Draw lines connecting original points to corresponding points
+    for i in range(len(starts)):
+        plt.plot([starts[i, 1], goals[i, 1]], [starts[i, 0], goals[i, 0]], 'k--', alpha=0.5)
+    if len(map) != 0:
+        plt.imshow(map)
+    plt.show()
 
 def experiment(
     config: PathPlanningTaskConfig,
     params: PathPlanningTaskParams,
 ):
     runner = ExperimentRunner()
-    # Maybe make this more explicit
     runner.setupTask(config, params)
+
+    visualizeStartEnds(runner.starts, runner.goals, params.map)
+
     paths = runner.runTask()
 
+    results, failed = runner.runValidation(paths)
+    print(f"Failed {failed}")
+
+    result = results[results > 0]
+    plt.hist(result, rwidth=0.5)
     visualizePaths(params.map, params.validation_map, paths, params.map_map_tf)
 
 
-def main(gt_file: Path, pred_file: Path, obbox: Path = Path()):
+def main(gt_file: Path, pred_file: Path, obbox: Path = Path(), num_pairs: int = 5, robot_radius = 0.3):
     gt_map = pkl.load(open(gt_file, "rb"))
     gt_data = gt_map["data"].astype(np.float32)
     gt_t = np.asarray(gt_map["t"][:-1])
@@ -72,18 +88,18 @@ def main(gt_file: Path, pred_file: Path, obbox: Path = Path()):
         bboxes = loadOrientedBoundingBox(obbox)
 
     config = PathPlanningTaskConfig(
-        StartSamplingMethod.FREESPACE,
-        GoalSamplingMethod.FREESPACE,
-        PlannerType.ASTAR
+        StartSamplingMethod.ROOM, GoalSamplingMethod.ROOM, PlannerType.ASTAR
     )
 
+    robot_radius_m = robot_radius
     param = PathPlanningTaskParams(
         map=pred_data,
         validation_map=gt_data,
         map_map_tf=tf,
-        num_start_end_pairs=20,
+        num_start_end_pairs=num_pairs,
         obboxes=bboxes,
         min_separation=10 / resoln,
+        map_inflation_radius=robot_radius_m / resoln,
     )
 
     experiment(config, param)

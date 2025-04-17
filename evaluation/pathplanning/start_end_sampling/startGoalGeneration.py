@@ -1,9 +1,11 @@
+import matplotlib.pyplot as plt
 from typing import Tuple, List, Callable
 import numpy as np
 from enum import Enum
 from functools import partial
 import warnings
 
+from .roomSampling import sample_from_polygons, sample_points_from_different_polygons
 
 class StartSamplingMethod(Enum):
     FREESPACE = 0
@@ -11,7 +13,7 @@ class StartSamplingMethod(Enum):
 
 
 def startSamplingFreeSpace(map: np.ndarray, num_starts: int) -> np.ndarray:
-    valid_indices = np.argwhere(map < 0.5)
+    valid_indices = np.argwhere(map < 0.1)
 
     if len(valid_indices) < num_starts:
         warnings.warn(f"Not enough free space to sample {num_starts} points")
@@ -26,10 +28,10 @@ def startSamplingInRooms(
     map: np.ndarray, num_starts: int, obboxes: List[np.ndarray]
 ) -> np.ndarray:
     """
-    obboxes: oriented bounding box - assuming we'll need some
+    obboxes: bounding boxes
+    # We assumes bboxes are already within the map
     """
-    # TODO
-    pass
+    return sample_from_polygons(obboxes, num_starts)
 
 
 def startSamplingFactory(
@@ -54,7 +56,7 @@ class GoalSamplingMethod(Enum):
 
 def goalSamplingFreeSpace(map: np.ndarray, start: np.ndarray) -> np.ndarray:
     """ """
-    valid_indices = np.argwhere(map < 0.5)
+    valid_indices = np.argwhere(map < 0.1)
     num_goals = len(start)
 
     if len(valid_indices) < num_goals:
@@ -79,8 +81,7 @@ def goalSamplingDifferentRoom(
     """
     Generate randomly sampled start and end goals on map,
     """
-    # TODO
-    pass
+    return sample_points_from_different_polygons(start, obboxes)
 
 
 def goalSamplingFactory(

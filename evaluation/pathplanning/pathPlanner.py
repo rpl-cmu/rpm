@@ -2,30 +2,35 @@ import numpy as np
 import heapq
 from enum import Enum
 from typing import Callable
-
+from numba import jit
 
 def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
+    """
+    # No numba because numba is bad with dict
+    """
     # Check if start or goal positions are valid
     if (
         not (0 <= start[0] < map.shape[0] and 0 <= start[1] < map.shape[1])
         or not (0 <= goal[0] < map.shape[0] and 0 <= goal[1] < map.shape[1])
     ):
-        return []
+        return np.zeros((0, 2), dtype=np.int32)
     
     directions = np.array([[-1, 0], [0, 1], [1, 0], [0, -1], 
-                           [-1, 1], [1, 1], [1, -1], [-1, -1]])
+                           [-1, 1], [1, 1], [1, -1], [-1, -1]], dtype=np.float32)
     
-    movement_cost = np.array([1, 1, 1, 1, 1.414, 1.414, 1.414, 1.414])
+    movement_cost = np.array([1, 1, 1, 1, 1.414, 1.414, 1.414, 1.414], dtype=np.float32)
 
     # Initialize data structures
-    start_tuple = tuple(start)
-    goal_tuple = tuple(goal)
+    start = start.astype(np.float32)
+    goal = goal.astype(np.float32)
+    start_tuple = (start[0], start[1])
+    goal_tuple = (goal[0], goal[1])
 
     # Dictionary to store cost from start to each node
-    g_score = {start_tuple: 0}
+    g_score = {start_tuple: np.float32(0) }
 
     # Dictionary to store estimated total cost from start to goal through each node
-    f_score = {start_tuple: np.linalg.norm(start - goal)}
+    f_score = {start_tuple: np.linalg.norm((start - goal).astype(np.float32))}
 
     # Priority queue for open set
     open_set = [(f_score[start_tuple], 0, start_tuple)]  # (f_score, counter, position)
@@ -55,14 +60,18 @@ def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
             path.append(start_tuple)
             path.reverse()
             retPath = np.asarray(path)
-            return np.hstack((retPath[:, 1].reshape((-1, 1)), retPath[:, 0].reshape((-1, 1))))
+
+            result = np.empty_like(retPath)
+            result[:, 0] = retPath[:, 1]
+            result[:, 1] = retPath[:, 0]
+            return result.astype(np.int32)
 
         # Explore neighbors
         current_pos = np.array(current)
 
         for i, direction in enumerate(directions):
             neighbor = current_pos + direction
-            neighbor_tuple = tuple(neighbor)
+            neighbor_tuple = (neighbor[0], neighbor[1])
 
             # Check if neighbor is within bounds
             if not (
@@ -71,7 +80,7 @@ def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
                 continue
 
             # Check if neighbor is obstacle-free
-            if map[neighbor_tuple] >= 0.5:
+            if map[int(neighbor[0]), int(neighbor[1])] >= 0.5:
                 continue
 
             # Calculate tentative g_score for this neighbor
@@ -96,7 +105,7 @@ def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
                     open_set_hash.add(neighbor_tuple)
 
     # If we get here, no path was found
-    return []
+    return np.zeros((0, 2), dtype=np.int32)
 
 
 def voronoi(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
