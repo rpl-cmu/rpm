@@ -6,6 +6,10 @@ project: mm_map
 
 entity: juite
 
+metric:
+  name: CD
+  goal: minimize
+
 parameters:
   map_extent:
     value: 10.0
@@ -45,5 +49,5 @@ command:
   - ${program}
   - ${args}
   - --en_wandb
-  - --folder 
+  - --folder
   - /home/rpl/data/radar/cic

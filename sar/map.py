@@ -107,6 +107,8 @@ class RadarMap:
         with open(save_path, "wb") as f:
             pickle.dump(map_data, f)
 
+        return data, t, resolution
+
     @staticmethod
     def load(load_dir: str) -> RadarMap:
         with open(f"{load_dir}/map.pkl", "rb") as f:

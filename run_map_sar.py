@@ -3,8 +3,9 @@ import cv2
 import tyro
 import wandb
 import time
-import numpy as np
 import imageio
+import numpy as np
+import pickle as pkl
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from os.path import join as pjoin
@@ -12,6 +13,8 @@ from os.path import join as pjoin
 import jax
 from mmwcas.dataset import MIMODataset
 from sar import BackProjection, RadarMap, OccupancySAR
+from evaluation import metric
+from utils import map_to_pts
 
 
 def run_sar(
@@ -37,6 +40,7 @@ def run_sar(
     rx: list[int] = [],
     tx: list[int] = [],
     en_wandb: bool = False,
+    f_score_thresh: float = 0.2,
 ) -> None:
     """Run the SAR mapping process
 
@@ -63,7 +67,7 @@ def run_sar(
         tx: list of transmit antennas (leave empty to use all)
         en_wandb: whether to enable wandb logging (will override name)
     """
-    print(folder)
+
     # load existing map
     if load:
         map_sar = RadarMap.load(load)
@@ -81,6 +85,8 @@ def run_sar(
     os.makedirs(f"{save_dir}", exist_ok=True)
 
     dataset = MIMODataset(pjoin(data_dir, r), rx=rx, tx=tx)
+    lidar_map = pkl.load(open(pjoin(data_dir, "map", "lidar.pkl"), "rb"))
+    lidar_pc = map_to_pts(lidar_map["data"], lidar_map["t"], lidar_map["resolution"])
 
     print(
         f"synthetic antennas: {len(dataset)} x {dataset.adc.param.numChirp} x {len(dataset.rx)} x {len(dataset.tx)}"
@@ -155,14 +161,21 @@ def run_sar(
     cv2.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8)[..., ::-1])
     back_projection.map.update_map(map_state)
     back_projection.map.visualize(save_dir, color_map="hot")
-    back_projection.map.save_probmap(f"{save_dir}/prob.pkl", prob)
-    # back_projection.map.save(save_dir)
+    data, t, res = back_projection.map.save_probmap(f"{save_dir}/prob.pkl", prob)
+
+    # evaluation
+    eval_pc = map_to_pts(data, t, res)
+    cd = metric.chamfer_distance(lidar_pc, eval_pc)
+    hd = metric.hausdorff_distance(lidar_pc, eval_pc)
+    f_score = metric.f_score(lidar_pc, eval_pc, thresh_dist=f_score_thresh)
+    print(f"CD: {cd}, HD: {hd}, F-score: {f_score}")
 
     if en_wandb:
         log_files = os.listdir(save_dir)
         for file in log_files:
             if file.endswith(".png"):
                 wandb.log({file.split(".")[0]: wandb.Image(pjoin(save_dir, file))})
+        wandb.log({"CD": cd, "HD": hd, "F-score": f_score})
         wandb.finish()
 
 

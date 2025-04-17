@@ -1,3 +1,3 @@
-from .utils import bodyframe_vel_estimate
+from .utils import bodyframe_vel_estimate, map_to_pts
 
-__all__ = ["bodyframe_vel_estimate"]
+__all__ = ["bodyframe_vel_estimate", "map_to_pts"]
