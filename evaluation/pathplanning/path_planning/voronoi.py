@@ -2,10 +2,14 @@ import numpy as np
 from scipy.ndimage import distance_transform_edt
 from skimage.morphology import skeletonize
 import networkx as nx
+import matplotlib.pyplot as plt
 
 def voronoi(map: np.ndarray, start: np.ndarray, goal: np.ndarray, cache) -> np.ndarray:
-    return find_path(cache, [start[1], start[0]], [goal[1], goal[0]])
-
+    node_list = find_path(cache, [start[1], start[0]], [goal[1], goal[0]])
+    if (len(node_list) == 0):
+        return np.zeros((0, 2))
+    positions = [cache.nodes[node]['pos'] for node in node_list]
+    return np.asarray(positions)
 
 def generate_voronoi_from_probability_map(prob_map):
     """
@@ -110,8 +114,102 @@ def find_path(G, start_point, end_point):
 
     # Find the shortest path (using edge weights that favor high clearance)
     try:
-        path = nx.shortest_path(G, start_node, end_node, weight="weight")
-        return np.asarray(path)
+        return nx.shortest_path(G, start_node, end_node)
     except nx.NetworkXNoPath:
         print("No path found between the specified points.")
-        return np.zeros((0, 2))
+        return list()
+
+def plot_results(prob_map, G, path=None):
+    """
+    Plot the results of Voronoi path planning.
+
+    Parameters:
+    -----------
+    prob_map : numpy.ndarray
+        Original probability map
+    G : networkx.Graph
+        Graph representation of Voronoi diagram
+    skeleton : numpy.ndarray
+        Binary skeleton image
+    path : list, optional
+        List of node indices representing a path
+    """
+    fig, axs = plt.subplots(3, 1, figsize=(6, 18))
+
+    # Plot probability map
+    axs[0].imshow(prob_map, cmap="gray")
+    axs[0].set_title("Probability Map")
+
+    # Plot distance transform with skeleton overlay
+    dist_transform = distance_transform_edt(~(prob_map > 0.5))
+    dist_norm = dist_transform / np.max(dist_transform)
+    axs[1].imshow(dist_norm, cmap="viridis")
+    # axs[1].contour(skeleton, [0.5], colors="red", linewidths=1)
+    axs[1].set_title("Distance Transform with Voronoi Skeleton")
+    axs[1].axis("off")
+
+    # Plot graph
+    axs[2].imshow(prob_map, cmap="gray", alpha=0.5)
+
+    # Get node positions
+    pos = nx.get_node_attributes(G, "pos")
+
+    # Calculate node colors based on clearance
+    clearance = np.array([G.nodes[i]["clearance"] for i in G.nodes()])
+    norm_clearance = clearance / clearance.max()
+
+    # Draw nodes with color indicating clearance
+    nx.draw_networkx_nodes(
+        G,
+        pos,
+        node_size=5,
+        node_color=norm_clearance,
+        cmap="plasma",
+        ax=axs[2],
+        alpha=0.7,
+    )
+
+    # Draw edges
+    nx.draw_networkx_edges(G, pos, width=0.5, alpha=0.5, ax=axs[2])
+
+    # If a path is provided, draw it
+    if path is not None:
+        path_edges = list(zip(path[:-1], path[1:]))
+        nx.draw_networkx_edges(
+            G, pos, edgelist=path_edges, width=2, edge_color="red", ax=axs[2]
+        )
+
+        # Mark start and end
+        start_pos = pos[path[0]]
+        end_pos = pos[path[-1]]
+        axs[2].plot(start_pos[0], start_pos[1], "go", markersize=10)
+        axs[2].plot(end_pos[0], end_pos[1], "ro", markersize=10)
+
+    axs[2].set_title("Voronoi Graph")
+    axs[2].axis("off")
+
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    import pickle as pkl
+    pred_map = pkl.load(
+        open(
+            "/home/alex/GitHub_dev/radar_mapping/roboSAR/evaluation/data/exps/map_sar/cic_mimo/prob.pkl",
+            "rb",
+        )
+    )
+    pred_data = pred_map["data"].astype(np.float32)
+    pred_data[pred_data < 0.4] = 0
+    pred_data[pred_data >= 0.4] = 1
+
+    sub_map = pred_data[0:150, 0:400]
+
+    graph = generate_voronoi_from_probability_map(sub_map)
+
+    start_pos = (70, 153)
+    goal_pos = (60, 230)
+
+    path = voronoi(None, start_pos, goal_pos, graph)
+   
+    plot_results(sub_map, graph, path)

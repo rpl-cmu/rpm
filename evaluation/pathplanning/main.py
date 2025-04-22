@@ -13,7 +13,7 @@ from ExperimentRunner import (
     PathPlanningTaskParams,
 )
 from start_end_sampling.startGoalGeneration import StartSamplingMethod, GoalSamplingMethod
-from pathPlanner import PlannerType
+from path_planning import PlannerType
 
 
 def visualizePaths(
@@ -88,7 +88,7 @@ def main(gt_file: Path, pred_file: Path, obbox: Path = Path(), num_pairs: int = 
         bboxes = loadOrientedBoundingBox(obbox)
 
     config = PathPlanningTaskConfig(
-        StartSamplingMethod.ROOM, GoalSamplingMethod.ROOM, PlannerType.ASTAR
+        StartSamplingMethod.ROOM, GoalSamplingMethod.ROOM, PlannerType.VORONOI
     )
 
     robot_radius_m = robot_radius
