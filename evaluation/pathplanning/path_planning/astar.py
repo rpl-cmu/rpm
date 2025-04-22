@@ -1,10 +1,8 @@
+from typing import Any
 import numpy as np
 import heapq
-from enum import Enum
-from typing import Callable
-from numba import jit
 
-def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
+def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray, cache: Any) -> np.ndarray:
     """
     # No numba because numba is bad with dict
     """
@@ -106,69 +104,3 @@ def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
 
     # If we get here, no path was found
     return np.zeros((0, 2), dtype=np.int32)
-
-
-def voronoi(map: np.ndarray, start: np.ndarray, goal: np.ndarray) -> np.ndarray:
-    # TODO
-    return np.zeros((0, 2))
-
-
-class PlannerType(Enum):
-    ASTAR = 0
-    VORONOI = 1
-
-
-def plannerFactory(
-    planner_type: PlannerType,
-) -> Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]:
-    """
-    Factory method for planner to be used in benchmark
-    """
-    if planner_type == PlannerType.ASTAR:
-        return aStar
-    elif planner_type == PlannerType.VORONOI:
-        return voronoi
-    else:
-        raise NotImplementedError()
-
-
-# Example usage:
-if __name__ == "__main__":
-    # Create a simple map (0 = free space, 1 = obstacle)
-    test_map = np.zeros((10, 10), dtype=np.int8)
-
-    # Add some obstacles
-    test_map[2:8, 5] = 1  # Vertical wall
-    test_map[5, 0:5] = 1  # Horizontal wall
-
-    # Define start and end points
-    start_point = np.array([1, 1])
-    end_point = np.array([8, 8])
-
-    # Find path
-    path = aStar(test_map, start_point, end_point)
-
-    # Print result
-    if path:
-        print("Path found:")
-        for point in path:
-            print(point)
-
-        # Visualize the path
-        vis_map = test_map.copy().astype(str)
-        vis_map[vis_map == "0"] = "."
-        vis_map[vis_map == "1"] = "#"
-
-        # Mark path
-        for y, x in path:
-            vis_map[y, x] = "o"
-
-        # Mark start and end
-        vis_map[tuple(start_point)] = "S"
-        vis_map[tuple(end_point)] = "E"
-
-        # Print the map
-        for row in vis_map:
-            print("".join(row))
-    else:
-        print("No path found")

@@ -6,10 +6,13 @@
 5. Multi-threaded - since presumably this will be slow if we have many start-end goal pairs - done
 6. Tool to get oriented bounding boxes for start/goal sampling - Claude wrote this in one go - Done
 7. Other path planning
-    1. Voronoi Graph
-    2. RRT
-    3. Artificial potential field
+    1. Voronoi Graph - need fixing
+    2. RRT - done
+    3. Artificial potential field - done - more local planner - might not work for us
 8. Evaluation
+    sample start / end on lidar map
+9. Edge failure cases - perhaps
+    1. Failure cases caused by edge clipping
 
 
 ## To run path planning experiments:

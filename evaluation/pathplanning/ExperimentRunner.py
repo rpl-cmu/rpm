@@ -1,8 +1,14 @@
 import concurrent.futures
 from dataclasses import dataclass
-from start_end_sampling.startGoalGeneration import StartSamplingMethod, GoalSamplingMethod
-from start_end_sampling.startGoalGeneration import startSamplingFactory, goalSamplingFactory
-from pathPlanner import plannerFactory, PlannerType
+from start_end_sampling.startGoalGeneration import (
+    StartSamplingMethod,
+    GoalSamplingMethod,
+)
+from start_end_sampling.startGoalGeneration import (
+    startSamplingFactory,
+    goalSamplingFactory,
+)
+from path_planning import PlannerType, plannerFactory
 from pathEval import evaluatePath
 import concurrent
 import numpy as np
@@ -32,8 +38,8 @@ class PathPlanningTaskParams:
     map_inflation_radius: int
 
 
-def process_path(idx, map_to_use, start, goal, planner):
-    path = planner(map_to_use, start, goal)
+def process_path(idx, map_to_use, start, goal, cache, planner):
+    path = planner(map_to_use, start, goal, cache)
     return idx, path
 
 
@@ -62,7 +68,7 @@ class ExperimentRunner:
             config.goal_sampling, params.min_separation, params.obboxes
         )
 
-        self.planner = plannerFactory(config.planner_type)
+        (self.planner, cacheGenerator) = plannerFactory(config.planner_type)
 
         self.map_to_use = np.zeros_like(self.params.map)
         self.map_to_use[self.params.map < 0.4] = 0
@@ -78,33 +84,41 @@ class ExperimentRunner:
 
         self.starts = self.startSamplingFn(self.map_to_use, params.num_start_end_pairs)
         self.goals = self.goalSamplingFn(self.map_to_use, self.starts)
+        self.cache = cacheGenerator(self.map_to_use)
 
     def runTask(self) -> List[np.ndarray]:
 
         results = [None] * len(self.starts)
 
-        # Use ProcessPoolExecutor for CPU-bound tasks
-        with concurrent.futures.ProcessPoolExecutor(
-            max_workers=os.cpu_count() - 2
-        ) as executor:
-            futures = []
+        if self.config.planner_type == PlannerType.VORONOI:
             for idx in range(len(self.starts)):
-                future = executor.submit(
-                    process_path,
-                    idx,
-                    self.map_to_use,
-                    self.starts[idx],
-                    self.goals[idx],
-                    self.planner,
+                results[idx] = self.planner(
+                    self.map_to_use, self.starts[idx], self.goals[idx], self.cache
                 )
-                futures.append(future)
+        else:
+            # Use ProcessPoolExecutor for CPU-bound tasks
+            with concurrent.futures.ProcessPoolExecutor(
+                max_workers=int(os.cpu_count() - 2)
+            ) as executor:
+                futures = []
+                for idx in range(len(self.starts)):
+                    future = executor.submit(
+                        process_path,
+                        idx,
+                        self.map_to_use,
+                        self.starts[idx],
+                        self.goals[idx],
+                        self.cache,
+                        self.planner,
+                    )
+                    futures.append(future)
 
-            # Process results as they complete with a progress bar
-            for future in tqdm(
-                concurrent.futures.as_completed(futures), total=len(futures)
-            ):
-                idx, path = future.result()
-                results[idx] = path
+                # Process results as they complete with a progress bar
+                for future in tqdm(
+                    concurrent.futures.as_completed(futures), total=len(futures)
+                ):
+                    idx, path = future.result()
+                    results[idx] = path
         return results
 
     def runValidation(self, paths: List[np.ndarray]) -> Tuple[np.ndarray, int]:

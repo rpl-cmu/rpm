@@ -13,7 +13,7 @@ class StartSamplingMethod(Enum):
 
 
 def startSamplingFreeSpace(map: np.ndarray, num_starts: int) -> np.ndarray:
-    valid_indices = np.argwhere(map < 0.1)
+    valid_indices = np.argwhere(map < 0.2)
 
     if len(valid_indices) < num_starts:
         warnings.warn(f"Not enough free space to sample {num_starts} points")
