@@ -82,8 +82,15 @@ class ExperimentRunner:
                 iterations=int(params.map_inflation_radius),
             )
 
-        self.starts = self.startSamplingFn(self.map_to_use, params.num_start_end_pairs)
-        self.goals = self.goalSamplingFn(self.map_to_use, self.starts)
+        self.starts = self.startSamplingFn(
+            self.map_to_use,
+            params.num_start_end_pairs,
+            params.validation_map,
+            params.map_map_tf,
+        )
+        self.goals = self.goalSamplingFn(
+            self.map_to_use, self.starts, params.validation_map, params.map_map_tf
+        )
         self.cache = cacheGenerator(self.map_to_use)
 
     def runTask(self) -> List[np.ndarray]:
@@ -125,10 +132,11 @@ class ExperimentRunner:
         # Run validation -> data perhaps along the lines of percentage of path invalid
         results = np.zeros(len(paths))
         failed_path_count = 0
+        rounded_tf = np.round(self.params.map_map_tf).astype(np.int32)
         for idx, path in enumerate(paths):
             if (len(path)) == 0:
                 failed_path_count += 1
                 continue
-            results[idx] = evaluatePath(path, self.params.validation_map)
+            results[idx] = evaluatePath(path + rounded_tf, self.params.validation_map)
 
         return results, failed_path_count

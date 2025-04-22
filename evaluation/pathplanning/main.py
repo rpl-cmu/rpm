@@ -88,7 +88,7 @@ def main(gt_file: Path, pred_file: Path, obbox: Path = Path(), num_pairs: int = 
         bboxes = loadOrientedBoundingBox(obbox)
 
     config = PathPlanningTaskConfig(
-        StartSamplingMethod.ROOM, GoalSamplingMethod.ROOM, PlannerType.VORONOI
+        StartSamplingMethod.FREESPACE_MUTUAL, GoalSamplingMethod.FREESPACE_MUTUAL, PlannerType.ASTAR
     )
 
     robot_radius_m = robot_radius
