@@ -49,12 +49,12 @@ class RadarMap:
         normal = vh[-1, :]
         self.grid = np.stack(np.meshgrid(xs, ys, [0], indexing="ij"), axis=-1)
         self.grid = self.grid.squeeze()
-        x, y = self.grid[:, :, 0], self.grid[:, :, 1]
-        self.grid[:, :, 2] = (
-            -(normal[0] * (x - pos_center[0]) + normal[1] * (y - pos_center[1]))
-            / normal[2]
-            + pos_center[2]
-        )
+        # x, y = self.grid[:, :, 0], self.grid[:, :, 1]
+        # self.grid[:, :, 2] = (
+        #     -(normal[0] * (x - pos_center[0]) + normal[1] * (y - pos_center[1]))
+        #     / normal[2]
+        #     + pos_center[2]
+        # )
 
         # internal state
         self.complex = np.zeros(self.grid.shape[:2], dtype=np.complex64)
