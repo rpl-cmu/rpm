@@ -14,13 +14,13 @@ parameters:
   map_extent:
     value: 10.0
   protect_range:
-    value: 0.3
+    value: 0.2
   resolution:
     value: 0.1
-  azimuth_fov:
+  occu_fov:
     values: [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
-  bp_extra_fov:
-    value: 10.0
+  sar_fov:
+    value: 90.0
   smooth_window:
     value: 1
   resolution_scale:
@@ -33,11 +33,11 @@ parameters:
     values: [0.25, 0.5, 0.75, 1.0]
   prob_hit:
     distribution: uniform
-    min: 0.55
+    min: 0.51
     max: 0.99
   prob_miss:
     distribution: uniform
-    min: 0.2
+    min: 0.01
     max: 0.49
   clamp_log_max:
     value: 3.5

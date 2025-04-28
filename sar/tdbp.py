@@ -27,7 +27,7 @@ class BackProjection:
         # signal parameters
         param = dataset.adc.param
         self.range_res = param.rangeResolution
-        self.range_max = param.maxRange
+        self.range_max = min(map_extent, param.maxRange)
         C = param.speedOfLight
         F0 = param.startFreqConst
         u = param.chirpSlope
@@ -44,7 +44,7 @@ class BackProjection:
         # map parameters
         self.protect_range = protect_range
         self.proc_range_res = resolution
-        self.sig_range_res = param.rangeResolution  / resolution_scale
+        self.sig_range_res = param.rangeResolution / resolution_scale
         self.fft_len = param.numADCSample * resolution_scale
         self.map = RadarMap(
             resolution=self.proc_range_res,
@@ -80,16 +80,19 @@ class BackProjection:
         sig_min, sig_max = sig_fft[idx], sig_fft[idx + 1]
         sig_at_r = (
             sig_min
-            + (r % self.sig_range_res) * (sig_max - sig_min) / self.sig_range_res
+            + (r - idx * self.sig_range_res) / self.sig_range_res * (sig_max - sig_min) 
         )
+        
 
-        ray_dot = (pixels - pts) @ ray_v / r
+        r_plane = jnp.linalg.norm(pixels[:, :2] - pts[:2], axis=-1)
+        ray_dot = (pixels[:, :2] - pts[:2]) @ ray_v[:2] / r_plane
         angle = jnp.rad2deg(jnp.arccos(ray_dot))
         gain = jnp.power(10, self.pattern.gain(angle) / 10)
 
         mask_range = jnp.logical_and(r < self.range_max, r > self.protect_range)
         mask_angle = jnp.logical_and(angle > 0, angle < self.azimuth_fov)
         mask = jnp.logical_and(mask_range, mask_angle)
+
         image = sig_at_r * jnp.exp(-1j * 2 * k * r) * gain * mask
         image = image.reshape(grid.shape[:2])
 

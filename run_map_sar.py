@@ -23,16 +23,16 @@ def run_sar(
     name: str = "current_time",
     save_video: bool = False,
     map_extent: float = 10.0,
-    protect_range: float = 0.3,
-    resolution: float = 0.1,
-    azimuth_fov: float = 20.0,
-    bp_extra_fov: float = 10.0,
+    protect_range: float = 0.2,
+    resolution: float = 0.05,
+    sar_fov: float = 90.0,
+    occu_fov: float = 20.0,
     smooth_window: int = 1,
     resolution_scale: int = 1,
-    amp_sigma: float = 0.15,
-    ang_res: float = 0.5,
-    prob_hit: float = 0.99,
-    prob_miss: float = 0.4,
+    amp_sigma: float = 0.1,
+    ang_res: float = 0.25,
+    prob_hit: float = 0.65,
+    prob_miss: float = 0.46,
     clamp_log_max: float = 3.5,  # 0.97
     clamp_log_min: float = -2.0,  # 0.12
     max_batch: int = 512,
@@ -97,7 +97,7 @@ def run_sar(
         dataset,
         map_extent,
         protect_range,
-        azimuth_fov + bp_extra_fov,
+        sar_fov,
         smooth_window,
         resolution_scale,
         resolution,
@@ -110,7 +110,7 @@ def run_sar(
         back_projection.proc_range_res,
         protect_range,
         map_extent,
-        angle_fov=azimuth_fov,
+        angle_fov=occu_fov,
         ang_res=ang_res,
         prob_hit=prob_hit,
         prob_miss=prob_miss,
@@ -154,7 +154,20 @@ def run_sar(
         if save_video:
             prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
             img = color_map(1 - prob)[:, :, :3] * 255
-            writer.append_data(img.astype(np.uint8))
+            img = img.astype(np.uint8)
+            writer.append_data(img)
+
+            # map_abs = np.abs(map_state["complex"])
+            # map_abs = map_abs / map_state["n_obs"]
+            # map_abs *= map_state["n_obs"] > n_sig
+            # prob = 1 - np.exp(-(map_abs**2) / (2 * amp_sigma**2))
+            # map = color_map(prob)[:, :, :3] * 255
+            # map = map.astype(np.uint8)
+            # mask = map_state["update"]
+            # mask = np.asarray(mask).astype(np.uint8)
+            # map[mask>0] = 255
+            # writer.append_data(map)
+
 
     prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
     img = color_map(1 - prob)[:, :, :3] * 255
@@ -162,6 +175,7 @@ def run_sar(
     back_projection.map.update_map(map_state)
     back_projection.map.visualize(save_dir, color_map="hot")
     data, t, res = back_projection.map.save_probmap(f"{save_dir}/prob.pkl", prob)
+    back_projection.map.save(save_dir)
 
     # evaluation
     eval_pc = map_to_pts(data, t, res)
