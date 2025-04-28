@@ -62,8 +62,7 @@ class OccupancySAR:
         mask = jnp.logical_and(
             map_state["n_obs"] > self.n_sig_thresh, map_state["update"]
         )
-        map_norm = mask * (map_abs / (map_state["n_obs"]+1))
-        # map_norm = mask * map_abs
+        map_norm = mask * (map_abs / (map_state["n_obs"] + 1))
 
         g_pos = jnp.matmul(pose, self.local_grid.reshape(-1, 4).T).T
         g_pos = g_pos[:, :2]
@@ -76,6 +75,9 @@ class OccupancySAR:
         # calculate density & transmitance along the range ray
         density = jnp.clip(jnp.log2(ra_val), 0, jnp.inf)
         alpha = 1 - jnp.exp(-density)
+
+        # alpha = 1 - (1 / ra_val)
+
         w, h = alpha.shape
         transmitance = jnp.cumprod(
             jnp.concatenate([jnp.ones((1, h)), 1.0 - alpha + 1e-7], axis=0), axis=0

@@ -27,3 +27,4 @@ dependencies:
     - imageio-ffmpeg
     - rosbags
     - tyro
+    - point-cloud-utils
