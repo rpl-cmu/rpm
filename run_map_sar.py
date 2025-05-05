@@ -24,7 +24,7 @@ def run_sar(
     save_video: bool = False,
     map_extent: float = 10.0,
     protect_range: float = 0.2,
-    resolution: float = 0.05,
+    resolution: float = 0.1,
     sar_fov: float = 90.0,
     occu_fov: float = 20.0,
     smooth_window: int = 1,

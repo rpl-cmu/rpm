@@ -184,10 +184,10 @@ class RadarMap:
         # to_png(save_dir, map_scaled, f"map_scaled_{args.map_max*10:.0e}.png")
 
         # pc
-        thresh = np.percentile(map_abs, 95)
-        mask = np.ones_like(map_abs, dtype=np.uint8) * 255
-        mask[map_abs > thresh] = 0
-        cv2.imwrite(f"{save_dir}/map_sar_pc.png", mask)
+        # thresh = np.percentile(map_abs, 95)
+        # mask = np.ones_like(map_abs, dtype=np.uint8) * 255
+        # mask[map_abs > thresh] = 0
+        # cv2.imwrite(f"{save_dir}/map_sar_pc.png", mask)
 
         # Histogram equalization
         abs_sorted = np.sort(map_abs[map_state["n_obs"] > 0].reshape(-1))

@@ -18,17 +18,17 @@ parameters:
   resolution:
     value: 0.1
   occu_fov:
-    values: [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
+    values: [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0]
   sar_fov:
-    value: 90.0
+    values: [60, 70, 80, 90]
   smooth_window:
     value: 1
   resolution_scale:
     value: 1
   amp_sigma:
     distribution: uniform
-    min: 0.01
-    max: 1
+    min: 0.001
+    max: 0.2
   ang_res:
     values: [0.25, 0.5, 0.75, 1.0]
   prob_hit:
