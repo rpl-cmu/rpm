@@ -59,9 +59,7 @@ class OccupancySAR:
     ):
         # calculate probability and local RA map
         map_abs = jnp.abs(map_state["complex"])
-        mask = jnp.logical_and(
-            map_state["n_obs"] > self.n_sig_thresh, map_state["update"]
-        )
+        mask = map_state["n_obs"] > self.n_sig_thresh
         map_norm = mask * (map_abs / (map_state["n_obs"] + 1))
 
         g_pos = jnp.matmul(pose, self.local_grid.reshape(-1, 4).T).T
@@ -72,12 +70,7 @@ class OccupancySAR:
         ra_val = ra_val.reshape(self.local_grid.shape[:2])
         prob = 1 - jnp.exp(-(ra_val**2) / (2 * self.amp_sigma**2))
 
-        # calculate density & transmitance along the range ray
-        density = jnp.clip(jnp.log2(ra_val), 0, jnp.inf)
-        alpha = 1 - jnp.exp(-density)
-
-        # alpha = 1 - (1 / ra_val)
-
+        alpha = prob
         w, h = alpha.shape
         transmitance = jnp.cumprod(
             jnp.concatenate([jnp.ones((1, h)), 1.0 - alpha + 1e-7], axis=0), axis=0
@@ -105,16 +98,10 @@ class OccupancySAR:
         local_c = (inv_p @ global_c.T).T[:, :2]
         local_r = jnp.linalg.norm(local_c, axis=-1)
         local_t = jnp.arctan2(local_c[..., 1], local_c[..., 0])
-        mask_local = jax.lax.dynamic_slice(
-            mask,
-            (idx[0] - self.map.patch_radius, idx[1] - self.map.patch_radius),
-            (2 * self.map.patch_radius, 2 * self.map.patch_radius),
-        )
-        local_s = jnp.sin(local_t)
-        indx_a = (local_s / self.sin_res) + (self.ang_size // 2)
+        indx_a = (jnp.rad2deg(local_t) / self.a_res) + (self.ang_size / 2)
         indx_r = (local_r - self.r_min) / self.r_res
-        val = jax.scipy.ndimage.map_coordinates(log_odds, (indx_r, indx_a), order=1)
-        val = val.reshape(img_space.shape[:2]) * mask_local
+        val = jax.scipy.ndimage.map_coordinates(log_odds, (indx_r, indx_a), order=0)
+        val = val.reshape(img_space.shape[:2])
 
         # protect range mask
         protect_mask = (local_r <= self.r_min).reshape(img_space.shape[:2])
