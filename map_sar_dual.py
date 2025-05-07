@@ -25,14 +25,14 @@ def run_sar(
     map_extent: float = 10.0,
     protect_range: float = 0.3,
     resolution: float = 0.1,
-    azimuth_fov: float = 20.0,
-    bp_extra_fov: float = 10.0,
+    sar_fov: float = 90.0,
+    occu_fov: float = 20.0,
     smooth_window: int = 1,
     resolution_scale: int = 1,
-    amp_sigma: float = 0.15,
-    ang_res: float = 0.5,
-    prob_hit: float = 0.99,
-    prob_miss: float = 0.4,
+    amp_sigma: float = 0.1,
+    ang_res: float = 0.25,
+    prob_hit: float = 0.65,
+    prob_miss: float = 0.46,
     clamp_log_max: float = 3.5,  # 0.97
     clamp_log_min: float = -2.0,  # 0.12
     max_batch: int = 512,
@@ -97,7 +97,7 @@ def run_sar(
         ref_data,
         map_extent,
         protect_range,
-        azimuth_fov + bp_extra_fov,
+        sar_fov,
         smooth_window,
         resolution_scale,
         resolution,
@@ -110,7 +110,7 @@ def run_sar(
         back_projection.proc_range_res,
         protect_range,
         map_extent,
-        angle_fov=azimuth_fov,
+        angle_fov=occu_fov,
         ang_res=ang_res,
         prob_hit=prob_hit,
         prob_miss=prob_miss,
@@ -122,12 +122,12 @@ def run_sar(
     color_map = plt.get_cmap("bone")
 
     if save_video:
-        writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=ref_data.fps)
+        writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=ref_data.fps*2)
 
     map_state = back_projection.map.get_map()
     num_samples = ref_data.adc.param.numADCSample
 
-    sig, pose_tx, pose_rx, stamp = dataset[0]
+    sig, pose_tx, pose_rx, _, _ = dataset[0]
     pose_tx = pose_tx.reshape(-1, 4, 4)
     l = pose_tx.shape[0]
     if l > max_batch:
@@ -156,6 +156,14 @@ def run_sar(
             img = color_map(1 - prob)[:, :, :3] * 255
             writer.append_data(img.astype(np.uint8))
 
+            # map_abs = np.abs(map_state["complex"])
+            # map_abs = map_abs / map_state["n_obs"]
+            # map_abs *= map_state["n_obs"] > n_sig
+            # prob = 1 - np.exp(-(map_abs**2) / (2 * amp_sigma**2))
+            # map = color_map(prob)[:, :, :3] * 255
+            # writer.append_data(map.astype(np.uint8))
+
+
     prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
     img = color_map(1 - prob)[:, :, :3] * 255
     cv2.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8)[..., ::-1])
@@ -169,6 +177,14 @@ def run_sar(
     hd = metric.hausdorff_distance(lidar_pc, eval_pc)
     f_score = metric.f_score(lidar_pc, eval_pc, thresh_dist=f_score_thresh)
     print(f"CD: {cd}, HD: {hd}, F-score: {f_score}")
+
+    fig = plt.figure()
+    plt.gca().set_aspect('equal', adjustable='box')
+    plt.scatter(lidar_pc[:, 0], lidar_pc[:, 1], c="r", label="Lidar Points", s=1)
+    plt.scatter(eval_pc[:, 0], eval_pc[:, 1], c="g", label="Evaluated Points", s=1)
+    plt.savefig(f"{save_dir}/eval.png")
+    plt.close()
+
 
     if en_wandb:
         log_files = os.listdir(save_dir)

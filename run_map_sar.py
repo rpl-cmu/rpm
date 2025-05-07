@@ -15,6 +15,7 @@ from mmwcas.dataset import MIMODataset
 from sar import BackProjection, RadarMap, OccupancySAR
 from evaluation import metric
 from utils import map_to_pts
+import open3d as o3d
 
 
 def run_sar(
@@ -83,9 +84,12 @@ def run_sar(
     name = str(int(time.time())) if name == "current_time" else name
     save_dir = f"exps/map_sar/{seq_name}_{name}"
     os.makedirs(f"{save_dir}", exist_ok=True)
+    color_map = plt.get_cmap("bone")
 
     dataset = MIMODataset(pjoin(data_dir, r), rx=rx, tx=tx)
     lidar_map = pkl.load(open(pjoin(data_dir, "map", "lidar.pkl"), "rb"))
+    img = color_map(1 - lidar_map["data"])[:, :, :3] * 255
+    cv2.imwrite(f"{save_dir}/prob_lidar.png", img.astype(np.uint8)[..., ::-1])
     lidar_pc = map_to_pts(lidar_map["data"], lidar_map["t"], lidar_map["resolution"])
 
     print(
@@ -119,7 +123,6 @@ def run_sar(
     )
     log_map = occuMap.log_map
     prob_mapping = jax.jit(occuMap.__call__)
-    color_map = plt.get_cmap("bone")
 
     if save_video:
         writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=dataset.fps)
@@ -168,7 +171,6 @@ def run_sar(
             # map[mask>0] = 255
             # writer.append_data(map)
 
-
     prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
     img = color_map(1 - prob)[:, :, :3] * 255
     cv2.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8)[..., ::-1])
@@ -183,6 +185,13 @@ def run_sar(
     hd = metric.hausdorff_distance(lidar_pc, eval_pc)
     f_score = metric.f_score(lidar_pc, eval_pc, thresh_dist=f_score_thresh)
     print(f"CD: {cd}, HD: {hd}, F-score: {f_score}")
+
+    fig = plt.figure()
+    plt.gca().set_aspect('equal', adjustable='box')
+    plt.scatter(lidar_pc[:, 0], lidar_pc[:, 1], c="r", label="Lidar Points", s=1)
+    plt.scatter(eval_pc[:, 0], eval_pc[:, 1], c="g", label="Evaluated Points", s=1)
+    plt.savefig(f"{save_dir}/eval.png")
+    plt.close()
 
     if en_wandb:
         log_files = os.listdir(save_dir)

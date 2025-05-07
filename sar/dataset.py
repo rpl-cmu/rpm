@@ -40,12 +40,12 @@ class DualRadarDataset:
 
             if ts_r0 <= ts_r1:
                 data = self.r0_dataset[self.id_r0]
-                data = (data, "radar0")
+                data += ("radar0",)
                 self.id_r0 += 1
 
             else:
                 data = self.r1_dataset[self.id_r1]
-                data = (data, "radar1")
+                data += ("radar1",)
                 self.id_r1 += 1
 
             return data
