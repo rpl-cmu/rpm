@@ -5,6 +5,7 @@ import pickle
 import yaml
 from pprint import pprint
 from scipy.optimize import least_squares
+from scipy.spatial.transform import Rotation as R
 
 import rospy
 from sensor_msgs.msg import PointCloud2
@@ -30,8 +31,18 @@ class SensorPose:
         gt = pd.read_csv(pose_file)
         self.gt = gt[["stamp", "tx", "ty", "tz", "qx", "qy", "qz", "qw"]]
 
+        self.extrinsics = {}
         with open(ex_file, "r") as f:
-            self.extrinsics = yaml.safe_load(f)
+            T_sensor = yaml.safe_load(f)
+            for rname in ["radar0", "radar1"]:
+                q = T_sensor[f"epson->{rname}"]["quaternion"]
+                t = T_sensor[f"epson->{rname}"]["translation"]
+                quat = np.array([q["x"], q["y"], q["z"], q["w"]])
+                trans = np.array([t["x"], t["y"], t["z"]])
+                T_r_i = np.eye(4)
+                T_r_i[:3, :3] = R.from_quat(quat).as_matrix()
+                T_r_i[:3, 3] = trans
+                self.extrinsics[f"T_{rname}_epson"] = T_r_i
 
         self.br = tf.TransformBroadcaster()
         self.map_cache = None
@@ -67,7 +78,7 @@ class SensorPose:
 
     def callback(self, msg):
         rid = msg.header.frame_id
-        T_r_i = np.asarray(self.extrinsics[f"T_{rid}_epson"])
+        T_r_i = self.extrinsics[f"T_{rid}_epson"]
 
         stamp = msg.header.stamp.to_sec()
 
@@ -81,7 +92,7 @@ class SensorPose:
         pc_homogeneous = np.hstack((pc[:, :3], np.ones((pc.shape[0], 1))))
         pc_transformed = (T_r_i @ pc_homogeneous.T).T
         pc[:, :3] = pc_transformed[:, :3]
-
+        msg.header.frame_id = "epson"
         msg.data = pc.tobytes()
         msg.width = pc.shape[0]
 
@@ -91,7 +102,7 @@ class SensorPose:
                 (pose["tx"], pose["ty"], pose["tz"]),
                 (pose["qx"], pose["qy"], pose["qz"], pose["qw"]),
                 rospy.Time.from_sec(pose["stamp"]),
-                msg.header.frame_id,
+                "epson",
                 "map",
             )
             self.pose = pose

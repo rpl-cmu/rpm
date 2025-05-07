@@ -47,6 +47,7 @@ for seq in $process_list; do
 
     bfs=""
     for bf in $seq_folder/bags_w_radar/*; do bfs=${bfs}\ $bf; done
+    # for bf in $seq_folder/bags_matlab/*; do bfs=${bfs}\ $bf; done
 
     roslaunch radar_map octomap.launch \
         dataset_path:=$seq_folder \
