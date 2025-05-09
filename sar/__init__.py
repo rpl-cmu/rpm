@@ -7,7 +7,7 @@ from .bp_filter import BackProjectionKF
 from .ra_mapping import RAmapping
 from .occu_map import OccupancySAR
 
-from .dataset import DualRadarDataset
+from .dataset import MergeDataset
 
 __all__ = [
     "BackProjection",
@@ -17,5 +17,5 @@ __all__ = [
     "RadarMap",
     "RAmapping",
     "OccupancySAR",
-    "DualRadarDataset",
+    "MergeDataset",
 ]

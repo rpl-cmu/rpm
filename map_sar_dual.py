@@ -11,10 +11,14 @@ from tqdm import tqdm
 from os.path import join as pjoin
 
 import jax
-from sar import DualRadarDataset
-from sar import BackProjection, RadarMap, OccupancySAR
+from mmwcas.dataset import MIMODataset
+from sar import BackProjection, RadarMap, OccupancySAR, MergeDataset
 from evaluation import metric
 from utils import map_to_pts
+
+import warnings
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 def run_sar(
@@ -23,7 +27,7 @@ def run_sar(
     name: str = "current_time",
     save_video: bool = False,
     map_extent: float = 10.0,
-    protect_range: float = 0.3,
+    protect_range: float = 0.2,
     resolution: float = 0.1,
     sar_fov: float = 90.0,
     occu_fov: float = 20.0,
@@ -31,7 +35,7 @@ def run_sar(
     resolution_scale: int = 1,
     amp_sigma: float = 0.1,
     ang_res: float = 0.25,
-    prob_hit: float = 0.65,
+    prob_hit: float = 1,
     prob_miss: float = 0.46,
     clamp_log_max: float = 3.5,  # 0.97
     clamp_log_min: float = -2.0,  # 0.12
@@ -83,8 +87,11 @@ def run_sar(
     save_dir = f"exps/map_sar/{seq_name}_{name}"
     os.makedirs(f"{save_dir}", exist_ok=True)
 
-    dataset = DualRadarDataset(data_dir, rx=rx, tx=tx)
-    ref_data = dataset.r0_dataset
+    data0 = MIMODataset(pjoin(data_dir, "radar0"), rx=rx, tx=tx)
+    data1 = MIMODataset(pjoin(data_dir, "radar1"), rx=rx, tx=tx)
+    dataset = MergeDataset(data0, data1)
+
+    ref_data = data0
     lidar_map = pkl.load(open(pjoin(data_dir, "map", "lidar.pkl"), "rb"))
     lidar_pc = map_to_pts(lidar_map["data"], lidar_map["t"], lidar_map["resolution"])
 
@@ -122,7 +129,7 @@ def run_sar(
     color_map = plt.get_cmap("bone")
 
     if save_video:
-        writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=ref_data.fps*2)
+        writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=ref_data.fps * 2)
 
     map_state = back_projection.map.get_map()
     num_samples = ref_data.adc.param.numADCSample
@@ -148,8 +155,7 @@ def run_sar(
             map_state = back_projection.update_batch(
                 pose_tx[b], pose_rx[b], sig[b], map_state
             )
-
-        log_map = prob_mapping(pose_tx[0], map_state, log_map)
+            log_map = prob_mapping(pose_tx[b[0]], map_state, log_map)
 
         if save_video:
             prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
@@ -162,7 +168,6 @@ def run_sar(
             # prob = 1 - np.exp(-(map_abs**2) / (2 * amp_sigma**2))
             # map = color_map(prob)[:, :, :3] * 255
             # writer.append_data(map.astype(np.uint8))
-
 
     prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
     img = color_map(1 - prob)[:, :, :3] * 255
@@ -179,12 +184,11 @@ def run_sar(
     print(f"CD: {cd}, HD: {hd}, F-score: {f_score}")
 
     fig = plt.figure()
-    plt.gca().set_aspect('equal', adjustable='box')
+    plt.gca().set_aspect("equal", adjustable="box")
     plt.scatter(lidar_pc[:, 0], lidar_pc[:, 1], c="r", label="Lidar Points", s=1)
     plt.scatter(eval_pc[:, 0], eval_pc[:, 1], c="g", label="Evaluated Points", s=1)
     plt.savefig(f"{save_dir}/eval.png")
     plt.close()
-
 
     if en_wandb:
         log_files = os.listdir(save_dir)

@@ -1,23 +1,15 @@
 import os
 import numpy as np
-from os.path import join as pjoin
-from mmwcas.dataset import MIMODataset
 
 
-class DualRadarDataset:
-    def __init__(
-        self,
-        folder_path: str,
-        rx: list = [],
-        tx: list = [],
-    ):
-        self.r0_dataset = MIMODataset(pjoin(folder_path, "radar0"), rx=rx, tx=tx)
-        self.r1_dataset = MIMODataset(pjoin(folder_path, "radar1"), rx=rx, tx=tx)
-
+class MergeDataset:
+    def __init__(self, dataset0, dataset1):
+        self.dataset0 = dataset0
+        self.dataset1 = dataset1
         self.id_r0, self.id_r1 = 0, 0
 
     def __len__(self):
-        return len(self.r0_dataset) + len(self.r1_dataset)
+        return len(self.dataset0) + len(self.dataset1)
 
     def __iter__(self):
         self.idx = 0
@@ -26,30 +18,27 @@ class DualRadarDataset:
 
     def __getitem__(self, i):
         if i >= 0 and i < self.__len__():
-
             ts_r0 = (
-                self.r0_dataset.get_stamp(self.id_r0)
-                if self.id_r0 < len(self.r0_dataset)
+                self.dataset0.get_stamp(self.id_r0)
+                if self.id_r0 < len(self.dataset0)
                 else float("inf")
             )
             ts_r1 = (
-                self.r1_dataset.get_stamp(self.id_r1)
-                if self.id_r1 < len(self.r1_dataset)
+                self.dataset1.get_stamp(self.id_r1)
+                if self.id_r1 < len(self.dataset1)
                 else float("inf")
             )
 
             if ts_r0 <= ts_r1:
-                data = self.r0_dataset[self.id_r0]
+                data = self.dataset0[self.id_r0]
                 data += ("radar0",)
                 self.id_r0 += 1
-
             else:
-                data = self.r1_dataset[self.id_r1]
+                data = self.dataset1[self.id_r1]
                 data += ("radar1",)
                 self.id_r1 += 1
-
             return data
-
+    
     def __next__(self):
         """next full frame"""
         if self.idx < self.__len__():
