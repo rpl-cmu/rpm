@@ -17,7 +17,7 @@ class OccupancySAR:
         range_min: float,
         range_max: float,
         ang_res: float = 0.5,
-        angle_fov: float = 20.0,
+        ang_fov: float = 20.0,
         prob_hit: float = 0.7,
         prob_miss: float = 0.4,
         clamp_log_max: float = 3.5,  # 0.97
@@ -26,7 +26,6 @@ class OccupancySAR:
 
         self.map = map
         self.a_res = ang_res
-        self.a_fov = angle_fov
         self.r_res = range_res
         self.r_min = range_min
         self.r_max = range_max
@@ -34,7 +33,7 @@ class OccupancySAR:
         self.amp_sigma = amp_sigma
 
         rs = np.arange(range_min, range_max, range_res)
-        thetas = np.arange(-angle_fov, angle_fov, ang_res)
+        thetas = np.arange(-ang_fov, ang_fov, ang_res)
         ra = np.stack(np.meshgrid(rs, thetas, indexing="ij"), axis=-1)
         xs = ra[..., 0] * np.cos(np.deg2rad(ra[..., 1]))
         ys = ra[..., 0] * np.sin(np.deg2rad(ra[..., 1]))
@@ -75,6 +74,7 @@ class OccupancySAR:
         transmitance = jnp.cumprod(
             jnp.concatenate([jnp.ones((1, h)), 1.0 - alpha + 1e-7], axis=0), axis=0
         )[:-1]
+        transmitance = jnp.where(transmitance < 0.2, 0, transmitance)
 
         # apply density rule to the probability map
         prob = jnp.clip(prob, self.prob_miss, self.prob_hit)
@@ -100,7 +100,7 @@ class OccupancySAR:
         local_t = jnp.arctan2(local_c[..., 1], local_c[..., 0])
         indx_a = (jnp.rad2deg(local_t) / self.a_res) + (self.ang_size / 2)
         indx_r = (local_r - self.r_min) / self.r_res
-        val = jax.scipy.ndimage.map_coordinates(log_odds, (indx_r, indx_a), order=0)
+        val = jax.scipy.ndimage.map_coordinates(log_odds, (indx_r, indx_a), order=1)
         val = val.reshape(img_space.shape[:2])
 
         # protect range mask

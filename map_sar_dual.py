@@ -30,13 +30,13 @@ def run_sar(
     protect_range: float = 0.2,
     resolution: float = 0.1,
     sar_fov: float = 90.0,
-    occu_fov: float = 20.0,
+    occu_fov: float = 15.0,
     smooth_window: int = 1,
     resolution_scale: int = 1,
-    amp_sigma: float = 0.1,
-    ang_res: float = 0.25,
-    prob_hit: float = 1,
-    prob_miss: float = 0.46,
+    amp_sigma: float = 0.05,
+    ang_res: float = 0.5,
+    prob_hit: float = 0.9,
+    prob_miss: float = 0.3,
     clamp_log_max: float = 3.5,  # 0.97
     clamp_log_min: float = -2.0,  # 0.12
     max_batch: int = 512,
@@ -48,27 +48,28 @@ def run_sar(
     """Run the SAR mapping process
 
     Args:
-        folder: path to the dataset
-        name: name of the output folder
-        save_video: whether to save the video
-        map_extent: extent of the map in meters
-        protect_range: range to protect in meters
-        azimuth_fov: azimuth field of view in degrees
-        bp_extra_fov: extra field of view for back projection in degrees
-        smooth_window: smoothing window size
-        resolution_scale: scale fft resolution
-        resolution: map resolution in meters
-        amp_sigma: amplitude sigma for the probability map
-        ang_res: angular resolution in degrees for prob mapping
-        prob_hit: probability of hit
-        prob_miss: probability of miss
-        clamp_log_max: maximum value for the log map
-        clamp_log_min: minimum value for the log map
-        max_batch: maximum batch size
-        r: radar name
-        rx: list of receive antennas (leave empty to use all)
-        tx: list of transmit antennas (leave empty to use all)
-        en_wandb: whether to enable wandb logging (will override name)
+        folder (str): Path to the folder containing radar data.
+        load (str): Path to the folder to load the SAR map.
+        name (str): Name for the experiment.
+        save_video (bool): Whether to save the output as a video.
+        map_extent (float): Extent of the map in meters.
+        protect_range (float): Range to protect around the radar in meters.
+        resolution (float): Resolution of the map in meters.
+        sar_fov (float): Half field of view for SAR mapping in degrees.
+        occu_fov (float): Half field of view for occupancy mapping in degrees.
+        smooth_window (int): Window size for smoothing.
+        resolution_scale (int): Scale factor for resolution.
+        amp_sigma (float): Standard deviation for amplitude noise.
+        ang_res (float): Angular resolution in degrees.
+        prob_hit (float): Probability of a hit for occupancy mapping.
+        prob_miss (float): Probability of a miss for occupancy mapping.
+        clamp_log_max (float): Maximum log-odds value for occupancy mapping.
+        clamp_log_min (float): Minimum log-odds value for occupancy mapping.
+        max_batch (int): Maximum batch size for processing.
+        rx (list[int]): List of receiver indices to use.
+        tx (list[int]): List of transmitter indices to use.
+        en_wandb (bool): Whether to enable Weights & Biases logging.
+        f_score_thresh (float): Threshold distance for F-score evaluation.
     """
 
     # load existing map
@@ -117,7 +118,7 @@ def run_sar(
         back_projection.proc_range_res,
         protect_range,
         map_extent,
-        angle_fov=occu_fov,
+        ang_fov=occu_fov,
         ang_res=ang_res,
         prob_hit=prob_hit,
         prob_miss=prob_miss,
@@ -127,6 +128,7 @@ def run_sar(
     log_map = occuMap.log_map
     prob_mapping = jax.jit(occuMap.__call__)
     color_map = plt.get_cmap("bone")
+    color_map_hot = plt.get_cmap("hot")
 
     if save_video:
         writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=ref_data.fps * 2)
@@ -134,6 +136,7 @@ def run_sar(
     map_state = back_projection.map.get_map()
     num_samples = ref_data.adc.param.numADCSample
 
+    pose_que = []
     sig, pose_tx, pose_rx, _, _ = dataset[0]
     pose_tx = pose_tx.reshape(-1, 4, 4)
     l = pose_tx.shape[0]
@@ -155,19 +158,27 @@ def run_sar(
             map_state = back_projection.update_batch(
                 pose_tx[b], pose_rx[b], sig[b], map_state
             )
-            log_map = prob_mapping(pose_tx[b[0]], map_state, log_map)
+            # log_map = prob_mapping(pose_tx[b[0]], map_state, log_map)
+            pose_que.append(pose_tx[b[0]])
+
+        if len(pose_que) > len(batch) * 2:
+            for i in range(len(batch)):
+                log_map = prob_mapping(pose_que.pop(0), map_state, log_map)
 
         if save_video:
             prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
             img = color_map(1 - prob)[:, :, :3] * 255
-            writer.append_data(img.astype(np.uint8))
+            # writer.append_data(img.astype(np.uint8))
 
-            # map_abs = np.abs(map_state["complex"])
-            # map_abs = map_abs / map_state["n_obs"]
-            # map_abs *= map_state["n_obs"] > n_sig
-            # prob = 1 - np.exp(-(map_abs**2) / (2 * amp_sigma**2))
-            # map = color_map(prob)[:, :, :3] * 255
+            map_abs = np.abs(map_state["complex"])
+            map_abs = map_abs / map_state["n_obs"]
+            map_abs *= map_state["n_obs"] > n_sig
+            prob = 1 - np.exp(-(map_abs**2) / (2 * amp_sigma**2))
+            map = color_map_hot(prob)[:, :, :3] * 255
             # writer.append_data(map.astype(np.uint8))
+
+            img = np.concat((img, map), axis=1)
+            writer.append_data(img.astype(np.uint8))
 
     prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
     img = color_map(1 - prob)[:, :, :3] * 255
@@ -175,6 +186,7 @@ def run_sar(
     back_projection.map.update_map(map_state)
     back_projection.map.visualize(save_dir, color_map="hot")
     data, t, res = back_projection.map.save_probmap(f"{save_dir}/prob.pkl", prob)
+    back_projection.map.save(save_dir)
 
     # evaluation
     eval_pc = map_to_pts(data, t, res)

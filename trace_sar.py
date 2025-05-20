@@ -13,7 +13,7 @@ from os.path import join as pjoin
 
 import jax
 from mmwcas.dataset import MIMODataset
-from sar import BackProjection, RadarMap, OccupancySAR
+from sar import RadarMap, OccupancySAR, MergeDataset
 from evaluation import metric
 from utils import map_to_pts
 
@@ -26,16 +26,12 @@ def run_sar(
     protect_range: float = 0.2,
     resolution: float = 0.1,
     occu_fov: float = 90.0,
-    smooth_window: int = 1,
-    resolution_scale: int = 1,
-    amp_sigma: float = 0.05,
+    amp_sigma: float = 0.07,
     ang_res: float = 0.25,
     prob_hit: float = 0.9,
-    prob_miss: float = 0.46,
+    prob_miss: float = 0.45,
     clamp_log_max: float = 3.5,  # 0.97
     clamp_log_min: float = -2.0,  # 0.12
-    max_batch: int = 512,
-    r: str = "radar0",
     rx: list[int] = [],
     tx: list[int] = [],
     f_score_thresh: float = 0.2,
@@ -43,27 +39,22 @@ def run_sar(
     """Run the SAR mapping process
 
     Args:
-        folder: path to the dataset
-        name: name of the output folder
-        save_video: whether to save the video
-        map_extent: extent of the map in meters
-        protect_range: range to protect in meters
-        azimuth_fov: azimuth field of view in degrees
-        bp_extra_fov: extra field of view for back projection in degrees
-        smooth_window: smoothing window size
-        resolution_scale: scale fft resolution
-        resolution: map resolution in meters
-        amp_sigma: amplitude sigma for the probability map
-        ang_res: angular resolution in degrees for prob mapping
-        prob_hit: probability of hit
-        prob_miss: probability of miss
-        clamp_log_max: maximum value for the log map
-        clamp_log_min: minimum value for the log map
-        max_batch: maximum batch size
-        r: radar name
-        rx: list of receive antennas (leave empty to use all)
-        tx: list of transmit antennas (leave empty to use all)
-        en_wandb: whether to enable wandb logging (will override name)
+        folder (str): Path to the folder containing radar data.
+        load (str): Path to the folder to load the SAR map.
+        save_video (bool): Whether to save the output as a video.
+        map_extent (float): Extent of the map in meters.
+        protect_range (float): Range to protect around the radar in meters.
+        resolution (float): Resolution of the map in meters.
+        occu_fov (float): Field of view for occupancy mapping in degrees.
+        amp_sigma (float): Standard deviation for amplitude noise.
+        ang_res (float): Angular resolution in degrees.
+        prob_hit (float): Probability of a hit for occupancy mapping.
+        prob_miss (float): Probability of a miss for occupancy mapping.
+        clamp_log_max (float): Maximum log-odds value for occupancy mapping.
+        clamp_log_min (float): Minimum log-odds value for occupancy mapping.
+        rx (list[int]): List of receiver indices to use.
+        tx (list[int]): List of transmitter indices to use.
+        f_score_thresh (float): Threshold distance for F-score evaluation.
     """
 
     map_sar = RadarMap.load(load)
@@ -71,11 +62,15 @@ def run_sar(
     data_dir = folder
     save_dir = load
 
-    dataset = MIMODataset(pjoin(data_dir, r), rx=rx, tx=tx)
+    # dataset = MIMODataset(pjoin(data_dir, r), rx=rx, tx=tx)
+    data0 = MIMODataset(pjoin(data_dir, "radar0"), rx=rx, tx=tx)
+    data1 = MIMODataset(pjoin(data_dir, "radar1"), rx=rx, tx=tx)
+    dataset = MergeDataset(data0, data1)
+
     lidar_map = pkl.load(open(pjoin(data_dir, "map", "lidar.pkl"), "rb"))
     lidar_pc = map_to_pts(lidar_map["data"], lidar_map["t"], lidar_map["resolution"])
 
-    n_sig = dataset.adc.param.numChirp  # * len(dataset.rx) * len(dataset.tx)
+    n_sig = data0.adc.param.numChirp  # * len(dataset.rx) * len(dataset.tx)
 
     occuMap = OccupancySAR(
         map_sar,
@@ -96,11 +91,11 @@ def run_sar(
     color_map = plt.get_cmap("bone")
 
     if save_video:
-        writer = imageio.get_writer(f"{save_dir}/trace_prob.mp4", fps=dataset.fps)
+        writer = imageio.get_writer(f"{save_dir}/trace_prob.mp4", fps=data0.fps*2)
 
     map_state = map_sar.get_map()
 
-    for sig, pose_tx, pose_rx, stamp in tqdm(dataset):
+    for sig, pose_tx, pose_rx, stamp, sensor in tqdm(dataset):
 
         pose_tx = pose_tx.reshape(-1, 4, 4)
         log_map = prob_mapping(pose_tx[0], map_state, log_map)
