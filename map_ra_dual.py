@@ -30,10 +30,10 @@ def run_sar(
     map_extent: float = 10,
     resolution: float = 0.1,
     protect_range: float = 0.2,
-    angle_fov: float = 20.0,
+    angle_fov: float = 80.0,
     amp_sigma: float = 2.0,
     prob_hit: float = 0.7,
-    prob_miss: float = 0.4,
+    prob_miss: float = 0.2,
     clamp_log_max: float = 3.5,  # 0.97
     clamp_log_min: float = -2.0,  # 0.12
     angele_fft_size: int = 256,
@@ -92,7 +92,9 @@ def run_sar(
     cd = metric.chamfer_distance(lidar_pc, eval_pc)
     hd = metric.hausdorff_distance(lidar_pc, eval_pc)
     f_score = metric.f_score(lidar_pc, eval_pc, thresh_dist=f_score_thresh)
-    print(f"CD: {cd}, HD: {hd}, F-score: {f_score}")
+    print(f"CD, HD, F-score\n{cd}, {hd}, {f_score}")
+    with open(f"{save_dir}/eval.txt", "w") as f:
+        f.write(f"CD, HD, F-score\n{cd}, {hd}, {f_score}")
 
     fig = plt.figure()
     plt.gca().set_aspect("equal", adjustable="box")
