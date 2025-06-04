@@ -8,7 +8,7 @@ class PathEvaluationResult:
 
 def evaluatePath(singleTrajectory: np.ndarray, validationMap: np.ndarray) -> float:
     """
-    returns percentage of path that's 
+    returns percentage of path that's valid
     """
 
-    return sum(validationMap[singleTrajectory[:, 1], singleTrajectory[:, 0]] < 0.5) / len(singleTrajectory)
+    return sum(validationMap[singleTrajectory[:, 1], singleTrajectory[:, 0]] < 0.3) / len(singleTrajectory)

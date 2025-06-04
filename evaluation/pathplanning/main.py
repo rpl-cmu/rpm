@@ -5,6 +5,7 @@ import pickle as pkl
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np
+import imageio.v3 as iio
 
 from json_utils import loadOrientedBoundingBox
 from ExperimentRunner import (
@@ -14,7 +15,7 @@ from ExperimentRunner import (
 )
 from start_end_sampling.startGoalGeneration import StartSamplingMethod, GoalSamplingMethod
 from path_planning import PlannerType
-
+from pathEvaluation import highLightFailureRates
 
 def visualizePaths(
     map: np.ndarray, validation_map: np.ndarray, paths: List[np.ndarray], tf: np.ndarray
@@ -51,6 +52,12 @@ def visualizeStartEnds(starts: np.ndarray, goals: np.ndarray, map: np.ndarray):
         plt.imshow(map)
     plt.show()
 
+def numbers(results: np.ndarray):
+    PERCENTILE = 1
+    full_success = np.sum(results >= PERCENTILE) / len(results)
+    severity = np.mean(1 - results[np.bitwise_and(results < PERCENTILE, results > 0)])
+    print(f"Success rate: {full_success}, average invalid for failed path {severity}")
+
 def experiment(
     config: PathPlanningTaskConfig,
     params: PathPlanningTaskParams,
@@ -64,6 +71,14 @@ def experiment(
 
     results, failed = runner.runValidation(paths)
     print(f"Failed {failed}")
+
+    print(results)
+    numbers(results)
+
+    heat_map = highLightFailureRates(paths, params.validation_map, params.map_map_tf)
+    plt.imshow(heat_map, alpha=0.9, cmap="Reds")
+    plt.imshow(params.validation_map, alpha=0.1, cmap='gray')
+    plt.show(block=False)
 
     result = results[results > 0]
     plt.hist(result, rwidth=0.5)
