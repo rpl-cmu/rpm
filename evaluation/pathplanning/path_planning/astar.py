@@ -78,7 +78,7 @@ def aStar(map: np.ndarray, start: np.ndarray, goal: np.ndarray, cache: Any) -> n
                 continue
 
             # Check if neighbor is obstacle-free
-            if map[int(neighbor[0]), int(neighbor[1])] >= 0.5:
+            if map[int(neighbor[0]), int(neighbor[1])] >= 0.2:
                 continue
 
             # Calculate tentative g_score for this neighbor
