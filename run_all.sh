@@ -2,14 +2,19 @@
 
 
 seq_list=(
-    "square1"
-    "square2"
-    "nsh"
-    "nsh_b"
-    "nsh_short"
-    "w_corridor1"
-    "w_corridor2"
-    "wean"
+    # c_corridor
+    # "nsh_a"
+    # "nsh_a1"
+    # "tepper"
+    # "square1"
+    # "square2"
+    # "nsh"
+    # "nsh_b"
+    # "nsh_short"
+    # "w_corridor1"
+    # "w_corridor2"
+    # "wean"
+    "cic"
 )
 
 # Loop through each sequence in the list
