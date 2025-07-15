@@ -231,23 +231,6 @@ def example_usage():
     plot_results(prob_map, G, skeleton, path)
 
 
-def main(map_file: Path):
-    pred_map = pkl.load(open(map_file, "rb"))
-    prob_map = pred_map["data"].astype(np.float32)
-    # Generate Voronoi graph from probability map
-    G, skeleton = generate_voronoi_from_probability_map(
-        prob_map, threshold=0.45, min_distance=0.2
-    )
-
-    # Plot results
-    plot_results(prob_map, G, skeleton)
-
-
-if __name__ == "__main__":
-    # example_usage()
-    tyro.cli(main)
-
-
 # For custom probability map input:
 def process_custom_map(your_prob_map):
     """
@@ -266,16 +249,39 @@ def process_custom_map(your_prob_map):
     G, skeleton = generate_voronoi_from_probability_map(your_prob_map)
 
     # Define start and end points (adjust as needed)
-    start_point = (10, 10)
-    end_point = (your_prob_map.shape[1] - 10, your_prob_map.shape[0] - 10)
+    print("Finished pre-processing maps")
+
+    starts = np.array([277, 147])
+    goals = np.array([277, 127])
+
+    # start_point = (10, 10)
+    # end_point = (your_prob_map.shape[1] - 10, your_prob_map.shape[0] - 10)
 
     # Find path
-    path = find_path(G, start_point, end_point)
+    path = find_path(G, starts, goals)
 
     # Plot results
     plot_results(your_prob_map, G, skeleton, path)
 
     return G, skeleton, path
+
+def main(map_file: Path):
+    pred_map = pkl.load(open(map_file, "rb"))
+    prob_map = pred_map["data"].astype(np.float32)
+    # Generate Voronoi graph from probability map
+    process_custom_map(prob_map)
+    # G, skeleton = generate_voronoi_from_probability_map(
+    #     prob_map, threshold=0.45, min_distance=0.2
+    # )
+
+    # # Plot results
+    # plot_results(prob_map, G, skeleton)
+
+
+if __name__ == "__main__":
+    # example_usage()
+    tyro.cli(main)
+
 
 
 # Example of how to use with your own probability map:

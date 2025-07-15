@@ -47,14 +47,14 @@ def printExistingResult(path: str):
     output = list()
     with open(path, 'rb') as file:
         output = pkl.load(file)
-    
-    # for p in output:
+
     formatForTable(output)
 
 def navExperiments(
         lidar_map_path: str,
         radar_map_path: List[str],
-        existing_output: str = ""
+        existing_output: str = "",
+        write_to_output: bool = False
     ):
 
     if (len(existing_output) != 0):
@@ -83,8 +83,9 @@ def navExperiments(
                 total_results.append(result)
                 printExperimentResult(result)
     
-    with open("output.pkl", 'wb') as file:
-        pkl.dump(total_results, file)
+    if write_to_output:
+        with open("output.pkl", 'wb') as file:
+            pkl.dump(total_results, file)
 
 if __name__ == "__main__":
     tyro.cli(navExperiments)

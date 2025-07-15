@@ -4,6 +4,9 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 import tyro
+import pickle
+import numpy as np
+from PIL import Image
 
 def pkl_to_png(directory_path, output_directory=None):
     """
@@ -103,9 +106,6 @@ def pkl_to_png(directory_path, output_directory=None):
     
     print(f"Conversion complete! PNG files saved in {output_directory}")
 
-import pickle
-import numpy as np
-from PIL import Image
 
 def replace_pkl_data_with_png(png_path, pkl_path, output_pkl_path=None):
     """
@@ -161,22 +161,27 @@ def replace_pkl_data_with_png(png_path, pkl_path, output_pkl_path=None):
     
     return pkl_data
 
-file_name = "tepper"
+if __name__ == "__main__":
+    '''
+    This is a two stage work process:
+    1. Convert all .pkl files in a directory to PNG images.
+    2. Use image editors to modify the PNG images in some other software.
+    3. Replace the 'data' field in the PKL files with the modified PNG data.
 
-png_path = f"data/collected_data/map_lidar_sanitized/{file_name}.png"
-pkl_path = f"data/collected_data/map_raw_lidar/{file_name}.pkl"
-output_pkl = f"data/collected_data/map_lidar_sanitized/{file_name}.pkl"
+    If I am a better person, I would have set this script up with a flag on whether to convert or replace.
+    But I am not, so I will just run the replace function directly.
+    You can also use the pkl_to_png function to convert all .pkl files in a directory to PNG images.
+    You can also use the replace_pkl_data_with_png function to replace the 'data' field in a PKL file with the PNG data.
 
-# def gen_sanitized(png_dir: str, pkl_dir: str, target_dir: str = ""):
-#     png_files = [f for f in os.listdir(png_dir) if f.endswith('.png')]
+    Note: Copilot wrote the above paragraph.
+    '''
+    file_name = "square1"
 
-replace_pkl_data_with_png(png_path, pkl_path, output_pkl)
+    png_path = f"data/collected_data/map_lidar_sanitized/{file_name}.png"
+    pkl_path = f"data/collected_data/map_raw_lidar/{file_name}.pkl"
+    output_pkl = f"data/collected_data/map_lidar_sanitized/{file_name}.pkl"
 
-# def main(directory: str, output_dir : str = ""):
-#     if (len(output_dir) == 0):
-#         output_dir = directory
-    
-#     pkl_to_png(directory, output_dir)
+    replace_pkl_data_with_png(png_path, pkl_path, output_pkl)
 
-# if __name__ == "__main__":
-#     tyro.cli(main)
+    # Other usages:
+    # pkl_to_png(input_directory, output_dir)
