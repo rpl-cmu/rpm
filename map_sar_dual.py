@@ -39,6 +39,7 @@ def run_sar(
     prob_miss: float = 0.2,
     clamp_log_max: float = 3.5,  # 0.97
     clamp_log_min: float = -2.0,  # 0.12
+    delay_frames: int = 2,
     max_batch: int = 512,
     rx: list[int] = [],
     tx: list[int] = [],
@@ -161,7 +162,7 @@ def run_sar(
             # log_map = prob_mapping(pose_tx[b[0]], map_state, log_map)
             pose_que.append(pose_tx[b[0]])
 
-        if len(pose_que) > len(batch) * 2:
+        if len(pose_que) > len(batch) * delay_frames:
             for i in range(len(batch)):
                 log_map = prob_mapping(pose_que.pop(0), map_state, log_map)
 
