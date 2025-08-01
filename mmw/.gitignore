@@ -1,0 +1,11 @@
+__pycache__
+example/videos/
+videos/
+*.mp4
+.vscode/
+*.npy
+*.egg-info/
+build/
+tmp/
+tmp.py
+test.py

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools", "wheel", "scikit-build-core", "nanobind", "jax>=0.5.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "mmwcas"
+description = "A Python package for cascade mmWave radar signal processing"
+authors = [{ name = "anonymous", email = "anonymous@anonymous" }]
+license = { text = "MIT" }
+dependencies = [
+    "numpy",
+    "scipy",
+    "jaxtyping",
+    "jax",
+    "matplotlib",
+    "imageio",
+    "pathlib",
+    "tqdm",
+    "rosbags",
+    "absl-py",
+    "tyro",
+]
+version = "0.1.0"
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+
+[tool.setuptools.package-data]
+"*" = ["*.mat"]
