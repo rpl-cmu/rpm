@@ -1,5 +1,24 @@
 # probability mapping for mmWave radar
 
-## evaluation
+## Prepare environment
 
-download maps: [link](https://drive.google.com/drive/folders/1fdDOWwGkIrk3q4WZ5x9nBUU8EAiuxISG?usp=drive_link)
+create conda env
+```
+conda env create --file conda.yaml
+```
+
+install mmwcas for dataloading and basic signal processing
+```
+pip install ./mmwcas --verbose
+```
+
+## Download Dataset
+
+download any sequence from the [google drive]() (link will reveal authors)
+
+## Run mapping
+
+```
+python map_sar.py --folder ~/data/sftp/nsh_short --save-video --name test
+```
+

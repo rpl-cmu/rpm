@@ -49,12 +49,6 @@ class RadarMap:
         normal = vh[-1, :]
         self.grid = np.stack(np.meshgrid(xs, ys, [0], indexing="ij"), axis=-1)
         self.grid = self.grid.squeeze()
-        # x, y = self.grid[:, :, 0], self.grid[:, :, 1]
-        # self.grid[:, :, 2] = (
-        #     -(normal[0] * (x - pos_center[0]) + normal[1] * (y - pos_center[1]))
-        #     / normal[2]
-        #     + pos_center[2]
-        # )
 
         # internal state
         self.complex = np.zeros(self.grid.shape[:2], dtype=np.complex64)
@@ -94,8 +88,8 @@ class RadarMap:
         data = prob_map
         resolution = self.resolution
         h, w = self.grid.shape[:2]
-        t = [self.grid[0, 0, 0], self.grid[0, 0, 1], 0]
-        r = [0.0, 0.0, 0.0, 0.0]
+        t = np.asarray([self.grid[0, 0, 0], self.grid[0, 0, 1], 0])
+        r = np.asarray([0.0, 0.0, 0.0, 0.0])
         map_data = {
             "data": data,
             "resolution": resolution,
@@ -135,10 +129,10 @@ class RadarMap:
     def visualize(self, save_dir: str, color_map: str = "hot"):
 
         map_state = self.get_map()
-        color_map = plt.get_cmap(color_map)
+        cmap = plt.get_cmap(color_map)
 
         def to_png(save_dir: str, map: np.ndarray, name: str):
-            map = color_map(map)[:, :, :3] * 255
+            map = cmap(map)[:, :, :3] * 255
             cv2.imwrite(f"{save_dir}/{name}", map[:, :, ::-1])
 
         map_abs = np.abs(map_state["complex"])
@@ -149,10 +143,6 @@ class RadarMap:
         map_dB[valid] = 10 * np.log10(map_dB[valid])
         map_dB[valid] = map_dB[valid] / np.max(map_dB[valid])
         to_png(save_dir, map_dB, "map_dB.png")
-
-        # # normalized
-        # map_norm = np.clip(map_abs / args.map_max, 0, 1)
-        # to_png(save_dir, map_norm, f"map_norm_{args.map_max:.0e}.png")
 
         # clip
         left, right = np.percentile(map_abs, np.array([0.0, 99.0]))
@@ -178,17 +168,6 @@ class RadarMap:
         map_variance = map_variance / np.max(map_variance)
         to_png(save_dir, map_variance, "map_phase_var.png")
 
-        # # variance scaled
-        # map_scaled = map_abs / map_variance
-        # map_scaled = np.clip(map_scaled / args.map_max * 10, 0, 1)
-        # to_png(save_dir, map_scaled, f"map_scaled_{args.map_max*10:.0e}.png")
-
-        # pc
-        # thresh = np.percentile(map_abs, 95)
-        # mask = np.ones_like(map_abs, dtype=np.uint8) * 255
-        # mask[map_abs > thresh] = 0
-        # cv2.imwrite(f"{save_dir}/map_sar_pc.png", mask)
-
         # Histogram equalization
         abs_sorted = np.sort(map_abs[map_state["n_obs"] > 0].reshape(-1))
         cdf = np.cumsum(abs_sorted)
@@ -201,26 +180,3 @@ class RadarMap:
         new_map = cdf[new_map_idx]
         map_abs[map_state["n_obs"] > 0] = new_map
         to_png(save_dir, map_abs, "map_equalized.png")
-
-        # plt.figure()
-        # plt.hist(abs_sorted, bins=1000, log=True)
-        # plt.title("log histogram of map_abs")
-        # plt.savefig(f"{save_dir}/map_abs_hist.png", bbox_inches="tight")
-
-        # plt.figure()
-        # plt.plot(abs_sorted, cdf)
-        # plt.title("cdf of map_abs")
-        # plt.savefig(f"{save_dir}/map_cdf.png", bbox_inches="tight")
-
-        # plt.figure()
-        # plt.hist(new_map, bins=1000, log=True)
-        # plt.title("log histogram of equalized map_abs")
-        # plt.savefig(f"{save_dir}/map_equalized_hist.png", bbox_inches="tight")
-
-        # plt.figure()
-        # new_map_sorted = np.sort(new_map)
-        # cdf = np.cumsum(new_map_sorted)
-        # cdf = cdf / cdf[-1]
-        # plt.plot(new_map_sorted, cdf)
-        # plt.title("cdf of equalized map_abs")
-        # plt.savefig(f"{save_dir}/map_equalized_cdf.png", bbox_inches="tight")

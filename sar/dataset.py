@@ -38,6 +38,8 @@ class MergeDataset:
                 data += ("radar1",)
                 self.id_r1 += 1
             return data
+        else:
+            raise IndexError
     
     def __next__(self):
         """next full frame"""

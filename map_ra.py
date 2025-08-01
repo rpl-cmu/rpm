@@ -14,16 +14,14 @@ import jax.numpy as jnp
 
 from mmwcas.dataset import ChirpPoseDataset
 from sar import RAmapping, MergeDataset
-from evaluation import metric
-from utils import map_to_pts
+from utils import map_to_pts, chamfer_distance, hausdorff_distance, f_score
 
 
-import warnings
+# import warnings
+# warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-
-def run_sar(
+def run_ra_mapping(
     folder: str,
     name: str = "current_time",
     save_video: bool = False,
@@ -68,10 +66,11 @@ def run_sar(
     )
     log_odds = mapper.map_val
     ramapping = jax.jit(mapper.__call__)
+    color_map = plt.get_cmap("bone")
+    writer, img = None, np.array([])
 
     if save_video:
         writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=d0.fps * 2)
-        color_map = plt.get_cmap("bone")
 
     for chirps, poses, stamp, sensor in tqdm(dataset):
         pose = poses[0, 4]  # center: chirp 0 tx 4
@@ -80,7 +79,7 @@ def run_sar(
         p = 1.0 - 1.0 / (1.0 + np.exp(log_odds))
         img = color_map(1 - p)[..., :3] * 255
 
-        if save_video:
+        if writer is not None:
             writer.append_data(img.astype(np.uint8))
 
     imageio.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8))
@@ -89,12 +88,12 @@ def run_sar(
 
     # evaluation
     eval_pc = map_to_pts(prob, t, res)
-    cd = metric.chamfer_distance(lidar_pc, eval_pc)
-    hd = metric.hausdorff_distance(lidar_pc, eval_pc)
-    f_score = metric.f_score(lidar_pc, eval_pc, thresh_dist=f_score_thresh)
-    print(f"CD, HD, F-score\n{cd}, {hd}, {f_score}")
+    cd = chamfer_distance(lidar_pc, eval_pc)
+    hd = hausdorff_distance(lidar_pc, eval_pc)
+    fs = f_score(lidar_pc, eval_pc, thresh_dist=f_score_thresh)
+    print(f"CD, HD, F-score\n{cd}, {hd}, {fs}")
     with open(f"{save_dir}/eval.txt", "w") as f:
-        f.write(f"CD, HD, F-score\n{cd}, {hd}, {f_score}")
+        f.write(f"CD, HD, F-score\n{cd}, {hd}, {fs}")
 
     fig = plt.figure()
     plt.gca().set_aspect("equal", adjustable="box")
@@ -105,4 +104,4 @@ def run_sar(
 
 
 if __name__ == "__main__":
-    cli = tyro.cli(run_sar)
+    cli = tyro.cli(run_ra_mapping)

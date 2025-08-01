@@ -9,21 +9,19 @@ import pickle as pkl
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from os.path import join as pjoin
+from typing import Optional
 
 import jax
 from mmwcas.dataset import MIMODataset
 from sar import BackProjection, RadarMap, OccupancySAR, MergeDataset
-from evaluation import metric
-from utils import map_to_pts
+from utils import map_to_pts, chamfer_distance, hausdorff_distance, f_score
 
-import warnings
-
-warnings.filterwarnings("ignore", category=RuntimeWarning)
+# import warnings
+# warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
-def run_sar(
+def run_sar_mapping(
     folder: str,
-    load: str = None,
     name: str = "current_time",
     save_video: bool = False,
     map_extent: float = 10.0,
@@ -50,7 +48,6 @@ def run_sar(
 
     Args:
         folder (str): Path to the folder containing radar data.
-        load (str): Path to the folder to load the SAR map.
         name (str): Name for the experiment.
         save_video (bool): Whether to save the output as a video.
         map_extent (float): Extent of the map in meters.
@@ -73,15 +70,9 @@ def run_sar(
         f_score_thresh (float): Threshold distance for F-score evaluation.
     """
 
-    # load existing map
-    if load:
-        map_sar = RadarMap.load(load)
-        map_sar.visualize(load, color_map="hot")
-        return
-
     if en_wandb:
         wandb.init(project="mm_map", config=locals())
-        name = wandb.run.name
+        name = wandb.run.name # type: ignore
 
     data_dir = folder
     seq_name = data_dir.split("/")[-1]
@@ -130,6 +121,7 @@ def run_sar(
     prob_mapping = jax.jit(occuMap.__call__)
     color_map = plt.get_cmap("bone")
     color_map_hot = plt.get_cmap("hot")
+    writer = None
 
     if save_video:
         writer = imageio.get_writer(f"{save_dir}/mapping.mp4", fps=ref_data.fps * 2)
@@ -159,24 +151,21 @@ def run_sar(
             map_state = back_projection.update_batch(
                 pose_tx[b], pose_rx[b], sig[b], map_state
             )
-            # log_map = prob_mapping(pose_tx[b[0]], map_state, log_map)
             pose_que.append(pose_tx[b[0]])
 
         if len(pose_que) > len(batch) * delay_frames:
             for i in range(len(batch)):
                 log_map = prob_mapping(pose_que.pop(0), map_state, log_map)
 
-        if save_video:
+        if writer is not None:
             prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
             img = color_map(1 - prob)[:, :, :3] * 255
-            # writer.append_data(img.astype(np.uint8))
 
             map_abs = np.abs(map_state["complex"])
             map_abs = map_abs / map_state["n_obs"]
             map_abs *= map_state["n_obs"] > n_sig
             prob = 1 - np.exp(-(map_abs**2) / (2 * amp_sigma**2))
             map = color_map_hot(prob)[:, :, :3] * 255
-            # writer.append_data(map.astype(np.uint8))
 
             img = np.concat((img, map), axis=1)
             writer.append_data(img.astype(np.uint8))
@@ -191,12 +180,12 @@ def run_sar(
 
     # evaluation
     eval_pc = map_to_pts(data, t, res)
-    cd = metric.chamfer_distance(lidar_pc, eval_pc)
-    hd = metric.hausdorff_distance(lidar_pc, eval_pc)
-    f_score = metric.f_score(lidar_pc, eval_pc, thresh_dist=f_score_thresh)
-    print(f"CD, HD, F-score\n{cd}, {hd}, {f_score}")
+    cd = chamfer_distance(lidar_pc, eval_pc)
+    hd = hausdorff_distance(lidar_pc, eval_pc)
+    fs = f_score(lidar_pc, eval_pc, thresh_dist=f_score_thresh)
+    print(f"CD, HD, F-score\n{cd}, {hd}, {fs}")
     with open(f"{save_dir}/eval.txt", "w") as f:
-        f.write(f"CD, HD, F-score\n{cd}, {hd}, {f_score}")
+        f.write(f"CD, HD, F-score\n{cd}, {hd}, {fs}")
 
     fig = plt.figure()
     plt.gca().set_aspect("equal", adjustable="box")
@@ -215,4 +204,4 @@ def run_sar(
 
 
 if __name__ == "__main__":
-    cli = tyro.cli(run_sar)
+    cli = tyro.cli(run_sar_mapping)

@@ -1,3 +1,4 @@
-from .utils import bodyframe_vel_estimate, map_to_pts
+from .utils import map_to_pts
+from .metric import chamfer_distance, hausdorff_distance, f_score
 
-__all__ = ["bodyframe_vel_estimate", "map_to_pts"]
+__all__ = ["map_to_pts", "chamfer_distance", "hausdorff_distance", "f_score"]
