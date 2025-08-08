@@ -30,3 +30,5 @@ dependencies:
     - tyro
     - point-cloud-utils
     - wandb
+    - pandas
+    - seaborn
