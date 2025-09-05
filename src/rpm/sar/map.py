@@ -7,7 +7,7 @@ import pickle
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-from jaxtyping import Float
+from jaxtyping import Array, Float
 
 
 class RadarMap:
@@ -25,8 +25,8 @@ class RadarMap:
         self,
         resolution: float,
         poses: np.ndarray,
-        map_extent: float = 10,  # meter
-        amp_sigma=0.5,
+        map_extent: float = 10.0,
+        amp_sigma: float = 0.5,
         block: int = 16,
     ):
         # map parameters
@@ -74,7 +74,7 @@ class RadarMap:
 
     def get_map(
         self,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray | Array]:
         """Return map internal states.
 
         Returns:
@@ -186,6 +186,7 @@ class RadarMap:
 
         def to_png(save_dir: str, map: np.ndarray, name: str):
             map = cmap(map)[:, :, :3] * 255
+            map = map.astype(np.uint8)
             imageio.imwrite(f"{save_dir}/{name}", map[:, :, ::-1])
 
         map_abs = np.abs(map_state["complex"])
@@ -214,6 +215,7 @@ class RadarMap:
         map_phase = (map_phase + np.pi) / (2 * np.pi)
         hsv_cmap = plt.get_cmap("hsv")
         map_phase = hsv_cmap(map_phase)[:, :, :3] * 255
+        map_phase = map_phase.astype(np.uint8)
         imageio.imwrite(f"{save_dir}/map_phase.png", map_phase[:, :, ::-1])
 
         # variance

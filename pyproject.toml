@@ -20,6 +20,7 @@ dependencies = [
     "imageio",
     "imageio-ffmpeg",
     "matplotlib",
+    "huggingface_hub[cli]",
     "beartype >= 0.20",
     "jaxtyping >= 0.3.2",
 ]

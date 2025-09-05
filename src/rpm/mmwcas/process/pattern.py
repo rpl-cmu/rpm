@@ -39,8 +39,15 @@ class PatternELE:
         plt.plot(self.xla.arange(-90, 91, 1), self.gain_dB_ele)
         plt.show()
 
-    def gain(self, angle: Float[Array, ""]) -> Float[Array, ""]:
-        """Interpolate gain from angle."""
+    def gain(self, angle: Float[Array, "n"]) -> Float[Array, "n"]:
+        """Interpolate gain from angle.
+
+        Args:
+            angle: elevation angle in degree
+
+        Returns:
+            Interpolated gain in dB.
+        """
         angle = self.xla.clip(angle, -self.clip_bound, self.clip_bound)
         u, d = (
             self.xla.ceil(angle).astype(self.xla.int32),
@@ -75,11 +82,14 @@ class PatternAZI:
         plt.plot(self.xla.arange(-90, 91, 1), self.gain_dB_azi)
         plt.show()
 
-    def gain(self, angle: Float[Array, ""]) -> Float[Array, ""]:
+    def gain(self, angle: Float[Array, "n"]) -> Float[Array, "n"]:
         """Interpolate gain from azimuth angle.
 
         Args:
-            angle: azimuth angle in degree
+            angle: elevation angle in degree
+
+        Returns:
+            Interpolated gain in dB.
         """
         angle = self.xla.clip(angle, -self.clip_bound, self.clip_bound)
         u, d = (

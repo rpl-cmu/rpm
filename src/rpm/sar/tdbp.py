@@ -5,11 +5,11 @@ from typing import Callable
 
 import jax
 import jax.numpy as jnp
-import numpy as np
-from jaxtyping import Array, Complex, Float, PyTree
-from mmwcas.dataset import ChirpPoseDataset
-from mmwcas.process import PatternAZI
-from sar import RadarMap
+from jaxtyping import Array, Complex, Float, Int, PyTree
+
+from ..mmwcas.dataset import ChirpPoseDataset
+from ..mmwcas.process import PatternAZI
+from .map import RadarMap
 
 
 class BackProjection:
@@ -128,7 +128,7 @@ class BackProjection:
         pose_tx: Float[Array, "4 4"],
         pose_rx: Float[Array, "4 4"],
         sig: Complex[Array, "n_samples"],
-    ) -> tuple[Float[Array, "2"], Complex[Array, "2s 2s"]]:
+    ) -> tuple[Int[Array, "2"], Complex[Array, "h w"]]:
         """Update image patch for a single chirp.
 
         Args:
@@ -157,7 +157,7 @@ class BackProjection:
     def map_update(
         self,
         state: dict,
-        u: tuple[Float[Array, "2"], Complex[Array, "2s 2s"]],
+        u: tuple[Int[Array, "2"], Complex[Array, "h w"]],
     ) -> tuple[dict, None]:
         """Update the radar map state with a new image patch.
 

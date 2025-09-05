@@ -3,6 +3,7 @@
 import os
 import pickle as pkl
 import time
+import warnings
 from os.path import join as pjoin
 from typing import Optional
 
@@ -18,8 +19,7 @@ from rpm.mmwcas.dataset import MIMODataset
 from rpm.sar import BackProjection, MergeDataset, OccupancySAR, RadarMap
 from rpm.utils import chamfer_distance, f_score, hausdorff_distance, map_to_pts
 
-# import warnings
-# warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 def run_sar_mapping(

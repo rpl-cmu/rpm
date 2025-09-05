@@ -58,12 +58,14 @@ class CascadeCalibration:
         freq_calib = np.arange(param.numSamplePerChirp) * freq_calib[..., None]
         freq_calib = np.conj(np.exp(1j * freq_calib))
         self.freq_calib = np.transpose(freq_calib[..., None], (2, 3, 1, 0))
+        self.freq_calib = self.freq_calib.astype(np.complex64)
 
         # phase calibration
         phase_calib = self.PeakValMat[0, 0] / self.PeakValMat
         if not amp_clib:
             phase_calib /= np.abs(phase_calib)
         self.phase_calib = np.transpose(phase_calib)[None, None, ...]
+        self.phase_calib = self.phase_calib.astype(np.complex64)
 
     def __call__(
         self, signal: Complex64[np.ndarray, "sample chirp Rx Tx"]

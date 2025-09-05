@@ -7,13 +7,13 @@ from os.path import join as pjoin
 from typing import List
 
 import numpy as np
-from jaxtyping import Complex64, Float32, Int16
+from jaxtyping import Complex64, Float32, Float64, Int16
 
 from .calibrate import CascadeCalibration
 from .params import RadarParam
 
 
-def extract_stamp(adc_folder: str) -> tuple[Float32[np.ndarray, "n"], List[int]]:
+def extract_stamp(adc_folder: str) -> tuple[Float64[np.ndarray, "n"], List[int]]:
     """Extract frame timestamps from index files.
 
     Args:
@@ -111,13 +111,16 @@ class CascadeADCDataset:
             order="F",
         )
         iq = np.transpose(iq, (1, 3, 0, 2))
+        iq = iq.astype(np.complex64)
         return iq
 
     def __len__(self) -> int:
         """Number of frames."""
         return self.numFrames
 
-    def __getitem__(self, frame: int) -> Complex64[np.ndarray, "Sample Chirp Rx Tx"]:
+    def __getitem__(
+        self, frame: int | np.int64
+    ) -> Complex64[np.ndarray, "Sample Chirp Rx Tx"]:
         """Get single frame.
 
         Args:
@@ -156,7 +159,7 @@ class CascadeADCDataset:
         self.idx = 0
         return self
 
-    def __next__(self) -> Complex64[np.ndarray, "Sample Chirp Rx Tx"]:
+    def __next__(self):
         """Next frame.
 
         Returns:
@@ -252,7 +255,7 @@ class PointDataset:
         self.idx = 0
         return self
 
-    def __next__(self) -> tuple[Float32[np.ndarray, "n 5"], Float32[np.ndarray, "4 4"]]:
+    def __next__(self):
         """Next frame.
 
         Returns:

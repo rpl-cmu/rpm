@@ -4,9 +4,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from jaxtyping import Array, Complex, Float
-from mmwcas.dataset import ChirpPoseDataset
-from mmwcas.process import RangeAzimuthProc
 
+from ..mmwcas.dataset import ChirpPoseDataset
+from ..mmwcas.process import RangeAzimuthProc
 from .map import RadarMap
 
 

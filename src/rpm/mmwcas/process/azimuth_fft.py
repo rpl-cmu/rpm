@@ -57,7 +57,7 @@ class AzimuthFFT:
 
     def __call__(
         self, signal: Complex[Array, "range doppler Rx Tx"]
-    ) -> Complex[Array, "range doppler azimuth"]:
+    ) -> Complex[Array, "range_trimmed doppler azimuth"]:
         s_r, s_d, s_rx, s_tx = signal.shape
         signal = signal.reshape(s_r, s_d, -1)
         signal = signal[:, :, self.azi_element]

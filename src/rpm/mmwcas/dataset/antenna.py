@@ -27,7 +27,7 @@ class AntennaLayout:
         tx_pos = tx_pos * wavelength / 2
         rx_pos = rx_pos * wavelength / 2
 
-        T = np.eye(4)
+        T = np.eye(4, dtype=np.float32)
         T[:3, :3] = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
         self.tx_T = np.repeat(T[None, ...], 12, axis=0)
         self.rx_T = np.repeat(T[None, ...], 16, axis=0)
@@ -35,7 +35,7 @@ class AntennaLayout:
         self.rx_T[:, 1, 3], self.rx_T[:, 2, 3] = -rx_pos[:, 0], -rx_pos[:, 1]
 
     def get_tx_transform(
-        self, pose: Float32[np.ndarray, "4 4"], tx: Int[np.ndarray, "n"]
+        self, pose: Float32[np.ndarray, "... 4 4"], tx: Int[np.ndarray, "n"]
     ) -> Float32[np.ndarray, "... n 4 4"]:
         return pose[..., None, :, :] @ self.tx_T[tx][None, ...]
 

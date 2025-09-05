@@ -3,6 +3,7 @@
 import os
 import pickle as pkl
 import time
+import warnings
 from os.path import join as pjoin
 from pathlib import Path
 
@@ -18,15 +19,14 @@ from rpm.mmwcas.dataset import ChirpPoseDataset
 from rpm.sar import MergeDataset, RAmapping
 from rpm.utils import chamfer_distance, f_score, hausdorff_distance, map_to_pts
 
-# import warnings
-# warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 def run_ra_mapping(
     folder: str,
     name: str = "current_time",
     save_video: bool = False,
-    map_extent: float = 10,
+    map_extent: float = 10.0,
     resolution: float = 0.1,
     protect_range: float = 0.2,
     angle_fov: float = 80.0,

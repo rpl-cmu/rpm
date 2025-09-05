@@ -2,9 +2,8 @@
 
 from typing import Optional
 
-import jax
 import jax.numpy as jnp
-from jaxtyping import Array, Bool, Complex
+from jaxtyping import Array, Complex
 
 from .window import sym_hanning
 
@@ -23,7 +22,7 @@ class DopplerFFT:
         self,
         fft_size: int = 64,
         num_chirp: int = 64,
-        window: Bool = True,
+        window: bool = True,
         norm: Optional[str] = None,
     ):
         self.fft_size = fft_size
