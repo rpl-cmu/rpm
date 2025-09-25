@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "rpm"
 version = "0.1.0"
-authors = [{ name = "Anonymous", email = "Anonymous" }]
+authors = [{ name = "Anonymous", email = "Anonymous@Anonymous.com" }]
 description = "Radar Probabilistic Mapping."
 readme = "README.md"
 requires-python = ">=3.12"
