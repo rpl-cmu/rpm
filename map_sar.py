@@ -1,23 +1,25 @@
+"""Script to run SAR mapping on MIMO radar data."""
+
 import os
-import cv2
-import tyro
-import wandb
-import time
-import imageio
-import numpy as np
 import pickle as pkl
-import matplotlib.pyplot as plt
-from tqdm import tqdm
+import time
+import warnings
 from os.path import join as pjoin
 from typing import Optional
 
+import imageio
 import jax
-from mmwcas.dataset import MIMODataset
-from sar import BackProjection, RadarMap, OccupancySAR, MergeDataset
-from utils import map_to_pts, chamfer_distance, hausdorff_distance, f_score
+import matplotlib.pyplot as plt
+import numpy as np
+import tyro
+import wandb
+from tqdm import tqdm
 
-# import warnings
-# warnings.filterwarnings("ignore", category=RuntimeWarning)
+from rpm.mmwcas.dataset import MIMODataset
+from rpm.sar import BackProjection, MergeDataset, OccupancySAR, RadarMap
+from rpm.utils import chamfer_distance, f_score, hausdorff_distance, map_to_pts
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 def run_sar_mapping(
@@ -44,35 +46,35 @@ def run_sar_mapping(
     en_wandb: bool = False,
     f_score_thresh: float = 0.2,
 ) -> None:
-    """Run the SAR mapping process
+    """Run the SAR mapping process.
 
     Args:
-        folder (str): Path to the folder containing radar data.
-        name (str): Name for the experiment.
-        save_video (bool): Whether to save the output as a video.
-        map_extent (float): Extent of the map in meters.
-        protect_range (float): Range to protect around the radar in meters.
-        resolution (float): Resolution of the map in meters.
-        sar_fov (float): Half field of view for SAR mapping in degrees.
-        occu_fov (float): Half field of view for occupancy mapping in degrees.
-        smooth_window (int): Window size for smoothing.
-        resolution_scale (int): Scale factor for resolution.
-        amp_sigma (float): Standard deviation for amplitude noise.
-        ang_res (float): Angular resolution in degrees.
-        prob_hit (float): Probability of a hit for occupancy mapping.
-        prob_miss (float): Probability of a miss for occupancy mapping.
-        clamp_log_max (float): Maximum log-odds value for occupancy mapping.
-        clamp_log_min (float): Minimum log-odds value for occupancy mapping.
-        max_batch (int): Maximum batch size for processing.
-        rx (list[int]): List of receiver indices to use.
-        tx (list[int]): List of transmitter indices to use.
-        en_wandb (bool): Whether to enable Weights & Biases logging.
-        f_score_thresh (float): Threshold distance for F-score evaluation.
+        folder: Path to the folder containing radar data and map.
+        name: Name for the experiment/run.
+        save_video: Whether to save a video of the mapping process.
+        map_extent: Extent of the map in meters.
+        protect_range: Range around the radar to protect from updates.
+        resolution: Resolution of the occupancy map in meters.
+        sar_fov: Field of view for SAR processing in degrees.
+        occu_fov: Angular field of view for occupancy mapping in degrees.
+        smooth_window: Size of the smoothing window for back-projection.
+        resolution_scale: Scale factor for resolution during processing.
+        amp_sigma: Standard deviation for amplitude-based occupancy updates.
+        ang_res: Angular resolution for occupancy mapping in degrees.
+        prob_hit: Probability of hit for occupancy mapping.
+        prob_miss: Probability of miss for occupancy mapping.
+        clamp_log_max: Maximum log-odds value to clamp to.
+        clamp_log_min: Minimum log-odds value to clamp to.
+        delay_frames: Number of frames to delay before updating occupancy map.
+        max_batch: Maximum batch size for processing poses.
+        rx: List of receiver indices to use.
+        tx: List of transmitter indices to use.
+        en_wandb: Whether to enable Weights & Biases logging.
+        f_score_thresh: Threshold distance for F-score calculation.
     """
-
     if en_wandb:
         wandb.init(project="mm_map", config=locals())
-        name = wandb.run.name # type: ignore
+        name = wandb.run.name  # type: ignore
 
     data_dir = folder
     seq_name = data_dir.split("/")[-1]
@@ -142,7 +144,6 @@ def run_sar_mapping(
         batch = [np.arange(l)]
 
     for sig, pose_tx, pose_rx, stamp, sensor in tqdm(dataset):
-
         sig = sig.reshape(-1, num_samples)
         pose_tx = pose_tx.reshape(-1, 4, 4)
         pose_rx = pose_rx.reshape(-1, 4, 4)
@@ -172,7 +173,7 @@ def run_sar_mapping(
 
     prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
     img = color_map(1 - prob)[:, :, :3] * 255
-    cv2.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8)[..., ::-1])
+    imageio.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8)[..., ::-1])
     back_projection.map.update_map(map_state)
     back_projection.map.visualize(save_dir, color_map="hot")
     data, t, res = back_projection.map.save_probmap(f"{save_dir}/prob.pkl", prob)

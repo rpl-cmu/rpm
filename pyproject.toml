@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rpm"
+version = "0.1.0"
+authors = [{ name = "Anonymous", email = "Anonymous@Anonymous.com" }]
+description = "Radar Probabilistic Mapping."
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "jax[cuda12]>=0.5.0",
+    "tqdm",
+    "tyro",
+    "wandb",
+    "numba",
+    "point-cloud-utils",
+    "imageio",
+    "imageio-ffmpeg",
+    "matplotlib",
+    "huggingface_hub[cli]",
+    "beartype >= 0.20",
+    "jaxtyping >= 0.3.2",
+]
+
+[project.optional-dependencies]
+dev = ["pre-commit >= 4.0.0", "ruff >= 0.11.0"]
+
+
+[tool.ruff.lint]
+select = ["W", "N", "I", "D", "NPY"]
+ignore = [
+    "D102", # Inheriting docstrings is allowed
+    "D107", # Initializer goes in the class docstring
+    "D401", # "Imperative mood" NLP doesn't always make sense
+    "D413", # No blank lines after section is preferred by mkdocstrings
+    "N806", # We do math, so capitalization should be allowed
+
+    # Must pick one...
+    "D213", # Pick 'multi-line-summary-first-line'.
+    "D203", # Pick `no-blank-line-before-class`.
+]

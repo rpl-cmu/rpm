@@ -1,31 +1,32 @@
+"""Run the RA mapping process."""
+
 import os
-import tyro
-import time
-import numpy as np
-import imageio
 import pickle as pkl
-import matplotlib.pyplot as plt
-from tqdm import tqdm
+import time
+import warnings
 from os.path import join as pjoin
 from pathlib import Path
 
+import imageio
 import jax
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
+import numpy as np
+import tyro
+from tqdm import tqdm
 
-from mmwcas.dataset import ChirpPoseDataset
-from sar import RAmapping, MergeDataset
-from utils import map_to_pts, chamfer_distance, hausdorff_distance, f_score
+from rpm.mmwcas.dataset import ChirpPoseDataset
+from rpm.sar import MergeDataset, RAmapping
+from rpm.utils import chamfer_distance, f_score, hausdorff_distance, map_to_pts
 
-
-# import warnings
-# warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 def run_ra_mapping(
     folder: str,
     name: str = "current_time",
     save_video: bool = False,
-    map_extent: float = 10,
+    map_extent: float = 10.0,
     resolution: float = 0.1,
     protect_range: float = 0.2,
     angle_fov: float = 80.0,
@@ -37,7 +38,24 @@ def run_ra_mapping(
     angele_fft_size: int = 256,
     f_score_thresh: float = 0.2,
 ) -> None:
+    """Run the RA mapping process.
 
+    Args:
+        folder: Path to the folder containing radar data and map.
+        name: Name for the experiment/run.
+        save_video: Whether to save a video of the mapping process.
+        map_extent: Extent of the map in meters.
+        resolution: Resolution of the occupancy map in meters.
+        protect_range: Range around the radar to protect from updates.
+        angle_fov: Angular field of view for RA mapping in degrees.
+        amp_sigma: Standard deviation for amplitude Gaussian noise.
+        prob_hit: Probability of hit for occupancy updates.
+        prob_miss: Probability of miss for occupancy updates.
+        clamp_log_max: Maximum log-odds value for clamping.
+        clamp_log_min: Minimum log-odds value for clamping.
+        angele_fft_size: FFT size for angle processing.
+        f_score_thresh: Distance threshold for F-score evaluation.
+    """
     data_dir = Path(folder)
     seq_name = data_dir.name
     name = str(int(time.time())) if name == "current_time" else name
@@ -56,7 +74,7 @@ def run_ra_mapping(
         map_extent=map_extent,
         protect_range=protect_range,
         resolution=resolution,
-        angle_3dB=angle_fov,
+        angle_3db=angle_fov,
         amp_sigma=amp_sigma,
         prob_hit=prob_hit,
         prob_miss=prob_miss,
