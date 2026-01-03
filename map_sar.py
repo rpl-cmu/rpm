@@ -173,7 +173,7 @@ def run_sar_mapping(
 
     prob = 1.0 - 1.0 / (1.0 + np.exp(log_map))
     img = color_map(1 - prob)[:, :, :3] * 255
-    imageio.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8)[..., ::-1])
+    imageio.imwrite(f"{save_dir}/prob_map.png", img.astype(np.uint8))
     back_projection.map.update_map(map_state)
     back_projection.map.visualize(save_dir, color_map="hot")
     data, t, res = back_projection.map.save_probmap(f"{save_dir}/prob.pkl", prob)

@@ -187,7 +187,7 @@ class RadarMap:
         def to_png(save_dir: str, map: np.ndarray, name: str):
             map = cmap(map)[:, :, :3] * 255
             map = map.astype(np.uint8)
-            imageio.imwrite(f"{save_dir}/{name}", map[:, :, ::-1])
+            imageio.imwrite(f"{save_dir}/{name}", map)
 
         map_abs = np.abs(map_state["complex"])
         valid = map_state["n_obs"] > 0
@@ -216,7 +216,7 @@ class RadarMap:
         hsv_cmap = plt.get_cmap("hsv")
         map_phase = hsv_cmap(map_phase)[:, :, :3] * 255
         map_phase = map_phase.astype(np.uint8)
-        imageio.imwrite(f"{save_dir}/map_phase.png", map_phase[:, :, ::-1])
+        imageio.imwrite(f"{save_dir}/map_phase.png", map_phase)
 
         # variance
         map_variance = self.get_phase_variance(map_state)
