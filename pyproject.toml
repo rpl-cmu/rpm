@@ -24,6 +24,7 @@ dependencies = [
     "point_cloud_utils",
     "beartype >= 0.20",
     "jaxtyping >= 0.3.2",
+    "gdown",
 ]
 
 [project.optional-dependencies]
