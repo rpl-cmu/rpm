@@ -5,9 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "rpm"
 version = "0.1.0"
-authors = [{ name = "Anonymous", email = "Anonymous@Anonymous.com" }]
+authors = [{ name = "Ray", email = "juiteh@andrew.cmu.edu" }]
 description = "Radar Probabilistic Mapping."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = "==3.12.*"
 
 dependencies = [
