@@ -29,6 +29,9 @@ dependencies = [
     "gdown",
 ]
 
+[project.scripts]
+download-dataset = "rpm.download:main"
+
 [project.optional-dependencies]
 dev = ["pre-commit >= 4.0.0", "ruff >= 0.11.0"]
 
